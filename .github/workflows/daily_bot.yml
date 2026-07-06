@@ -1,0 +1,28 @@
+name: Smartphone Insight Automation Bot
+
+on:
+  schedule:
+    # 매일 아침 8시(한국 시간)에 자동으로 엔진을 깨웁니다. (UTC 23:00)
+    - cron: '0 23 * * *'
+  workflow_dispatch: # 필요할 때 수동으로 로봇을 깨울 수 있는 버튼을 만듭니다.
+
+jobs:
+  run-automation:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 저장소 코드 가져오기
+      uses: actions/checkout@v4
+
+    - name: 파이썬 환경 세팅하기
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: 필수 라이브러리 설치하기
+      run: |
+        pip install requests beautifulsoup4 google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client openai
+
+    - name: 자동화 엔진 가동 (데이터 수집 ➡️ 분석 ➡️ 대시보드 갱신)
+      run: |
+        echo "로봇이 엔진을 가동하여 데이터를 긁어옵니다..."
+        python src/main.py
