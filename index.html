@@ -1,0 +1,57 @@
+HTML
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트폰 인사이트 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+    <nav class="bg-white shadow-md p-4 sticky top-0 z-10">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-extrabold text-blue-600">📱 스마트폰 인사이트 대시보드</h1>
+            <div class="space-x-2">
+                <span class="px-3 py-1 bg-gray-200 rounded-full text-sm font-semibold cursor-pointer hover:bg-gray-300">플래그십</span>
+                <span class="px-3 py-1 bg-gray-200 rounded-full text-sm font-semibold cursor-pointer hover:bg-gray-300">중급형/보급형</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto mt-8 p-4">
+        <section class="bg-white rounded-xl shadow-lg p-6 mb-8 border-l-4 border-blue-500">
+            <h2 class="text-2xl font-bold mb-4 text-gray-900">🚀 Today's Drop (오늘의 신제품)</h2>
+            <div id="todays-drop" class="text-gray-600 bg-blue-50 p-4 rounded-lg">
+                <p>⚙️ 현재 껍데기(디자인)만 완성된 상태입니다. 3단계에서 자동화 로봇을 연결하면 매일 아침 이곳에 신제품 이미지가 업데이트됩니다.</p>
+            </div>
+        </section>
+
+        <section class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex justify-between items-end mb-4">
+                <h2 class="text-xl font-bold text-gray-900">📊 스마트폰 스펙 누적 위키</h2>
+                <span class="text-sm text-gray-500">최신 업데이트: 수집 대기 중</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse whitespace-nowrap">
+                    <thead>
+                        <tr class="bg-gray-100 border-b-2 border-gray-200 text-gray-700">
+                            <th class="p-3 font-semibold">출시연월</th>
+                            <th class="p-3 font-semibold">제조사</th>
+                            <th class="p-3 font-semibold">모델명</th>
+                            <th class="p-3 font-semibold">AP (프로세서)</th>
+                            <th class="p-3 font-semibold">디스플레이</th>
+                            <th class="p-3 font-semibold text-blue-600">AI 인사이트 요약</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-table">
+                        <tr class="border-b hover:bg-gray-50 transition">
+                            <td class="p-3 text-gray-500" colspan="6 text-center">자동화 로봇이 데이터를 수집해 오면 표가 채워집니다.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
