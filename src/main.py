@@ -3,23 +3,25 @@ import json
 import datetime
 import requests
 from bs4 import BeautifulSoup
-from openai import OpenAI
+import google.generativeai as genai
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 # ==========================================
 # ⚙️ 1. 설정 및 출입증(API Key) 준비
 # ==========================================
-# 디렉터님! 아래 빈칸에 디렉터님의 구글 스프레드시트 주소(URL)에서
-# /d/ 와 /edit 사이의 복잡한 영어+숫자 조합(ID)을 복사해서 붙여넣어 주세요!
+# 디렉터님의 구글 스프레드시트 고유 ID를 아래에 입력해 주세요!
 SPREADSHEET_ID = "1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o"
 
 # 금고에서 출입증 꺼내기
-openai_key = os.environ.get("OPENAI_API_KEY")
+gemini_key = os.environ.get("GEMINI_API_KEY")
 gcp_creds_json = os.environ.get("GCP_CREDENTIALS")
 
-if openai_key:
-    client = OpenAI(api_key=openai_key)
+# 구글 Gemini AI 세팅
+if gemini_key:
+    genai.configure(api_key=gemini_key)
+    # 빠르고 무료로 무제한에 가깝게 쓸 수 있는 flash 모델 사용
+    ai_model = genai.GenerativeModel('gemini-1.5-flash')
 
 def get_sheets_service():
     if not gcp_creds_json:
@@ -36,15 +38,11 @@ def get_sheets_service():
 def crawl_latest_smartphones():
     print("📡 [수집] GSMArena 및 주요 IT 매체 최신 뉴스 수집 중...")
     headers = {"User-Agent": "Mozilla/5.0"}
-    
-    # 예시: GSMArena 뉴스 RSS 또는 모바일 페이지 크롤링
-    # (실제 구조 변경 시 CSS 셀렉터 조정이 필요할 수 있습니다.)
     url = "https://www.gsmarena.com/news.php3"
     try:
         response = requests.get(url, headers=headers)
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # 최신 기사 1~2개 추출 (테스트를 위해 가상의 파싱 로직 적용)
         news_items = soup.select(".news-item .news-item-body h3 a")
         if news_items:
             latest_title = news_items[0].text
@@ -67,7 +65,6 @@ def compare_with_gold_standard(device_data):
         return None
     
     try:
-        # 3번 시트(골드_스탠다드)에서 애플/삼성 등 프리미엄 기기 데이터 불러오기
         result = service.spreadsheets().values().get(
             spreadsheetId=SPREADSHEET_ID, 
             range="골드_스탠다드!A1:AQ"
@@ -75,21 +72,19 @@ def compare_with_gold_standard(device_data):
         benchmarks = result.get('values', [])
         print(f"✔️ 벤치마크 데이터 {len(benchmarks)-1}개 모델 호출 완료")
         
-        # 1순위: 삼성 Galaxy S / Apple iPhone Pro Max 추출
-        # 2순위: 기사 맥락에 따른 동적 경쟁사 추출 (이후 AI가 처리)
         return {"benchmarks": benchmarks, "new_device": device_data}
     except Exception as e:
         print(f"⚠️ 구글 시트 읽기 에러: {e}")
         return None
 
 # ==========================================
-# 🧠 4. OpenAI 인사이트 분석 (이중 비교)
+# 🧠 4. 구글 Gemini 인사이트 분석 (이중 비교)
 # ==========================================
 def generate_ai_insight(comparison_data):
-    if not openai_key or not comparison_data:
+    if not gemini_key or not comparison_data:
         return "AI 분석을 위한 데이터 또는 출입증이 없습니다."
     
-    print("🧠 [분석] OpenAI API로 동적 벤치마크 매칭 및 인사이트 도출 중...")
+    print("🧠 [분석] 구글 Gemini API로 동적 벤치마크 매칭 및 인사이트 도출 중...")
     
     prompt = f"""
     당신은 글로벌 스마트폰 시장을 분석하는 최고의 전문가 'AX 프로젝트 수석 개발자'입니다.
@@ -99,17 +94,14 @@ def generate_ai_insight(comparison_data):
     
     지시사항:
     1. 수집된 기사에 스마트폰 신제품(특히 중국 또는 글로벌 프리미엄) 소식이 있는지 확인하세요.
-    2. 신제품이 있다면, 벤치마크 데이터의 '삼성' 또는 '애플'을 1순위 절대 기준으로 삼고, 기사 맥락상 견제하는 경쟁사(예: 화웨이, 샤오미)가 있다면 2순위 대조군으로 유동적으로 추가하여 스펙을 비교하세요. (동적 벤치마크 매칭)
+    2. 신제품이 있다면, 벤치마크 데이터의 '삼성' 또는 '애플'을 1순위 절대 기준으로 삼고, 기사 맥락상 견제하는 경쟁사(예: 화웨이, 샤오미)가 있다면 2순위 대조군으로 유동적으로 추가하여 스펙을 비교하세요.
     3. 전작 대비 개선점과 프리미엄 벤치마크 대비 우위 포인트를 제품 관점에서 3줄 이내로 깊이 있게 분석해주세요.
     """
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
-        )
-        insight = response.choices[0].message.content
+        # OpenAI의 chat.completions 대신 Gemini의 generate_content 사용
+        response = ai_model.generate_content(prompt)
+        insight = response.text
         print("💡 AI 분석 완료!")
         return insight
     except Exception as e:
@@ -121,8 +113,6 @@ def generate_ai_insight(comparison_data):
 # ==========================================
 def update_dashboard_and_sheet(insight_data):
     print("💻 [갱신] 구글 시트 저장 및 대시보드 업데이트 처리 중...")
-    # 1. 1번 시트(오늘의_신제품), 2번 시트(스펙_누적_데이터)에 결과 Append (구글 Sheets API)
-    # 2. GitHub API를 활용해 index.html의 Today's Drop 섹션을 새 인사이트로 덮어쓰기
     print("✅ 데이터베이스 및 시각화 전시장 갱신 명령 전송 완료")
 
 # ==========================================
@@ -132,7 +122,6 @@ if __name__ == "__main__":
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{current_time}] 🤖 스마트폰 인사이트 로봇 가동 시작")
     
-    # 4단계 파이프라인 순차 실행
     device_data = crawl_latest_smartphones()
     comparison = compare_with_gold_standard(device_data)
     insight = generate_ai_insight(comparison)
