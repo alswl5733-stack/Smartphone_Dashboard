@@ -21,7 +21,7 @@ gcp_creds_json = os.environ.get("GCP_CREDENTIALS")
 if gemini_key:
     genai.configure(api_key=gemini_key)
     # 빠르고 무료로 무제한에 가깝게 쓸 수 있는 flash 모델 사용
-    ai_model = genai.GenerativeModel('gemini-1.5-flash')
+    ai_model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 def get_sheets_service():
     if not gcp_creds_json:
