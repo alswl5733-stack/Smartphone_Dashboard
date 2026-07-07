@@ -15,7 +15,7 @@ from googleapiclient.discovery import build
 SPREADSHEET_ID = "1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o"
 
 # 타임머신 타겟 날짜 설정 (GSMArena 표기법 기준)
-TARGET_DATE = "29 Jun"
+TARGET_DATE = "26 Jun"
 
 gemini_key = os.environ.get("GEMINI_API_KEY")
 gcp_creds_json = os.environ.get("GCP_CREDENTIALS")
