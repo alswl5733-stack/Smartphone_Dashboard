@@ -11,7 +11,7 @@ from googleapiclient.discovery import build
 # ⚙️ 1. 설정 및 출입증(API Key) 준비
 # ==========================================
 # ⚠️ 주의: 아래 빈칸에 구글 스프레드시트 ID를 반드시 다시 넣어주세요!
-SPREADSHEET_ID = "여기에_구글_스프레드시트_ID_입력"
+SPREADSHEET_ID = "1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o"
 
 gemini_key = os.environ.get("GEMINI_API_KEY")
 gcp_creds_json = os.environ.get("GCP_CREDENTIALS")
