@@ -9,7 +9,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 # ==========================================
-# ⚙️ 1. 설정 및 API 준비
+# ⚙️ 1. 설정 및 API 준비 (하이브리드 모델 탑재)
 # ==========================================
 SPREADSHEET_ID = "1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o"
 
@@ -18,7 +18,9 @@ gcp_creds_json = os.environ.get("GCP_CREDENTIALS")
 
 if gemini_key:
     genai.configure(api_key=gemini_key)
-    ai_model = genai.GenerativeModel('gemini-3.5-flash')
+    # 💡 [핵심] 역할에 맞춰 두 명의 AI를 고용합니다.
+    lite_model = genai.GenerativeModel('gemini-3.1-flash-lite') # 빠르고 한도가 넉넉한 인턴 (수집/스펙 추출용)
+    pro_model = genai.GenerativeModel('gemini-3.5-flash')       # 똑똑한 시니어 분석가 (최종 인사이트용)
 
 def get_sheets_service():
     if not gcp_creds_json:
@@ -30,7 +32,7 @@ def get_sheets_service():
     return build('sheets', 'v4', credentials=creds)
 
 # ==========================================
-# 📡 2. [1단계: 정찰] 신제품 모델명만 싹쓸이 수집
+# 📡 2. [1단계: 정찰] 신제품 모델명 싹쓸이 (Lite 모델 투입)
 # ==========================================
 def detect_new_releases():
     print("📡 [1단계: 정찰] 6월 27일 테스트: 기사 40개를 검사하여 신제품 모델명을 찾습니다...")
@@ -58,7 +60,6 @@ def detect_new_releases():
             except Exception:
                 article_text = "본문 수집 불가"
 
-            # AI에게 신제품 여부와 모델명을 한 번에 묻기 (프롬프트 유연화)
             check_prompt = f"""
             기사 제목: '{title}'
             기사 초반부: '{article_text}'
@@ -66,7 +67,9 @@ def detect_new_releases():
             단순 루머나 출시 국가 확대라면 '아니오'라고 답하고, 
             진짜 공식 신제품 발표가 맞다면 해당 신제품의 '모델명(예: Samsung Galaxy A27)'만 정확히 적어주세요. 다른 말은 덧붙이지 마세요.
             """
-            ai_response = ai_model.generate_content(check_prompt).text.strip()
+            
+            # 💡 Lite 모델(인턴)에게 단순 분류 작업을 시킵니다.
+            ai_response = lite_model.generate_content(check_prompt).text.strip()
             
             if "아니오" not in ai_response and len(ai_response) > 2:
                 model_name = ai_response
@@ -75,7 +78,8 @@ def detect_new_releases():
             else:
                 print("  ㄴ 🤖 AI: 신제품 발표 아님.")
                 
-            time.sleep(12) # API 1분 5회 제한 보호
+            # Lite 모델은 한도가 넉넉하여 대기 시간을 4초로 대폭 단축!
+            time.sleep(4) 
             
         return found_models
 
@@ -84,15 +88,13 @@ def detect_new_releases():
         return []
 
 # ==========================================
-# 🔍 3. [2단계: 심층 발굴] 특정 모델 세부 스펙 2차 검색
+# 🔍 3. [2단계: 심층 발굴] 세부 스펙 2차 검색 (Lite 모델 투입)
 # ==========================================
 def fetch_detailed_specs(model_name, intro_text):
     print(f"🔍 [{model_name}] 세부 스펙 2차 검색을 시작합니다...")
     
-    # 해당 모델명으로 구글 뉴스 스펙 전용 2차 검색
     search_query = f"{model_name} specifications OR specs"
     url = f"https://news.google.com/rss/search?q={search_query}&hl=en-US&gl=US&ceid=US:en"
-    
     combined_text = intro_text + "\n\n--- 2차 검색 추가 정보 ---\n"
     
     try:
@@ -100,14 +102,13 @@ def fetch_detailed_specs(model_name, intro_text):
         soup = BeautifulSoup(response.content, 'xml')
         items = soup.find_all('item')
         
-        # 상위 2개 기사의 첫 3문단씩만 더 긁어와서 단서 조합
         for item in items[:2]:
             try:
                 res = requests.get(item.link.text, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
                 art_soup = BeautifulSoup(res.text, 'html.parser')
                 combined_text += "\n".join([p.text for p in art_soup.find_all('p')[:3]]) + "\n"
             except: pass
-            time.sleep(5) # 짧은 대기
+            time.sleep(3) 
             
         spec_prompt = f"""
         다음은 '{model_name}' 스마트폰에 대해 수집된 여러 기사의 초반부 내용들입니다.
@@ -121,7 +122,8 @@ def fetch_detailed_specs(model_name, intro_text):
         배터리:
         카메라:
         """
-        extracted_specs = ai_model.generate_content(spec_prompt).text
+        # 💡 스펙 데이터 추출도 Lite 모델(인턴)이 빠르게 처리합니다.
+        extracted_specs = lite_model.generate_content(spec_prompt).text
         return extracted_specs
         
     except Exception as e:
@@ -129,10 +131,10 @@ def fetch_detailed_specs(model_name, intro_text):
         return "스펙 수집 실패"
 
 # ==========================================
-# 📊 4. 골드 스탠다드 대조 및 시트 저장
+# 📊 4. 골드 스탠다드 대조 및 시트 저장 (Pro 모델 투입)
 # ==========================================
 def generate_ai_insight(specs):
-    print("🧠 [분석] 골드 스탠다드 대조 및 인사이트 도출 중...")
+    print("🧠 [분석] 골드 스탠다드 대조 및 인사이트 도출 중... (Pro 모델 가동)")
     service = get_sheets_service()
     benchmarks = "벤치마크 데이터를 불러오지 못했습니다."
     try:
@@ -142,7 +144,8 @@ def generate_ai_insight(specs):
 
     prompt = f"신제품 스펙: {specs}\n벤치마크 기준: {benchmarks}\n신제품이 벤치마크 대비 어떤 수치적 우위가 있는지, 시장 타겟팅 관점에서 3줄 이내로 정리하세요."
     try:
-        return ai_model.generate_content(prompt).text
+        # 💡 [핵심] 최종 보고서(인사이트)는 가장 똑똑한 Pro 모델(시니어)이 작성합니다!
+        return pro_model.generate_content(prompt).text
     except: return "인사이트 에러"
 
 def save_to_cumulative_sheet(model_name, specs, url, insight_text):
@@ -155,13 +158,13 @@ def save_to_cumulative_sheet(model_name, specs, url, insight_text):
         # 1. 스펙 시트
         service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID, range="스펙_누적_데이터!A:F",
-            valueInputOption="USER_ENTERED", body={'values': [[current_date, "Google News (2차 심층검색)", model_name, specs, url]]}
+            valueInputOption="USER_ENTERED", body={'values': [[current_date, "Google News (하이브리드)", model_name, specs, url]]}
         ).execute()
 
         # 2. 오늘의 신제품 시트
         service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID, range="오늘의_신제품!A:E",
-            valueInputOption="USER_ENTERED", body={'values': [[current_date, model_name, "AI 감지 (투트랙)", url, insight_text]]}
+            valueInputOption="USER_ENTERED", body={'values': [[current_date, model_name, "AI 감지 (하이브리드)", url, insight_text]]}
         ).execute()
         print("✔️ 저장 완료!")
     except Exception as e: print(f"⚠️ 저장 에러: {e}")
@@ -170,9 +173,9 @@ def save_to_cumulative_sheet(model_name, specs, url, insight_text):
 # 🤖 메인 파이프라인
 # ==========================================
 if __name__ == "__main__":
-    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🤖 스마트폰 봇 가동 (투트랙 심층 분석 모드)")
+    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🤖 스마트폰 봇 가동 (하이브리드 AI 엔진)")
     
-    # 1단계: 정찰 (모델명 찾기)
+    # 1단계: 정찰 (인턴 투입)
     detected_models = detect_new_releases()
     
     if detected_models:
@@ -182,18 +185,16 @@ if __name__ == "__main__":
             print(f"\n========================================")
             print(f"📱 [{idx+1}/{len(detected_models)}] 타겟 모델: {device['model_name']}")
             
-            # 2단계: 심층 발굴 (세부 스펙 채우기)
+            # 2단계: 심층 발굴 (인턴 투입)
             detailed_specs = fetch_detailed_specs(device['model_name'], device['intro_text'])
             print(f"\n[추출된 세부 스펙]\n{detailed_specs}\n")
-            time.sleep(12) # AI 과부하 방지
             
-            # 3단계: 분석 및 저장
+            # 3단계: 분석 및 저장 (시니어 투입)
             insight = generate_ai_insight(detailed_specs)
             save_to_cumulative_sheet(device['model_name'], detailed_specs, device['primary_url'], insight)
-            time.sleep(12) # AI 과부하 방지
             
             print(f"========================================\n")
             
-        print("✅ 모든 신제품에 대한 투트랙 심층 파이프라인이 성공적으로 완료되었습니다!")
+        print("✅ 모든 신제품에 대한 하이브리드 파이프라인 처리가 성공적으로 완료되었습니다!")
     else:
         print("✅ 시스템 정상 작동: 지정된 기간 내에 출시된 신제품이 없습니다.")
