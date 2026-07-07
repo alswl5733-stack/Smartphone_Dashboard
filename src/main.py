@@ -41,7 +41,7 @@ def find_and_extract_new_release():
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     
     # 1페이지부터 3페이지까지 탐색 (과거 기사이므로 뒤로 밀렸을 수 있음)
-    for page in range(1, 4):
+    for page in range(1, 10):
         url = f"https://www.gsmarena.com/news.php3?sPage={page}"
         try:
             response = requests.get(url, headers=headers)
