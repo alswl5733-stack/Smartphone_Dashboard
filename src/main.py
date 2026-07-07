@@ -3,6 +3,7 @@ import json
 import datetime
 import time
 import requests
+import re
 from bs4 import BeautifulSoup
 import google.generativeai as genai
 from google.oauth2 import service_account
@@ -11,7 +12,7 @@ from googleapiclient.discovery import build
 # ==========================================
 # ⚙️ 1. 설정 및 API 준비
 # ==========================================
-SPREADSHEET_ID = "1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o"
+SPREADSHEET_ID = "여기에_구글_스프레드시트_ID_입력"
 
 gemini_key = os.environ.get("GEMINI_API_KEY")
 gcp_creds_json = os.environ.get("GCP_CREDENTIALS")
@@ -30,58 +31,80 @@ def get_sheets_service():
     return build('sheets', 'v4', credentials=creds)
 
 # ==========================================
-# 📡 2. 구글 뉴스 RSS 탐색 (깔끔한 24시간 스캔)
+# 📡 2. 구글 뉴스 일괄 스캔 (50개 묶음 & 6/27 테스트)
 # ==========================================
 def find_and_extract_new_release():
-    print("📡 [수집] 구글 뉴스를 통해 '최근 24시간' 내의 스마트폰 출시 기사를 스캔합니다...")
+    print("📡 [수집] 6월 27일 테스트 가동: 구글 뉴스에서 기사 50개를 한 번에 스캔합니다...")
     
-    # 주말에도 매일 돌기 때문에 when:1d로 충분합니다!
-    query = "smartphone (launch OR announcement OR official specs) when:1d"
+    # 6월 27일 아침 8시 상황을 시뮬레이션하기 위해 6월 25일~28일 사이의 기사를 검색
+    query = "smartphone (launch OR announcement OR official specs) after:2026-06-25 before:2026-06-28"
     url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
     
     try:
         response = requests.get(url, timeout=10)
-        soup = BeautifulSoup(response.content, 'html.parser')
+        # RSS 파싱을 위해 xml 파서 사용
+        soup = BeautifulSoup(response.content, 'xml') 
         items = soup.find_all('item')
         
         if not items:
-            print("⚠️ 최근 24시간 내에 발행된 관련 기사가 없습니다.")
+            print("⚠️ 검색된 기사가 없습니다.")
             return None
             
-        print(f"▶️ 구글 뉴스에서 {len(items)}개의 관련 기사를 찾았습니다. AI 필터링을 시작합니다...")
+        target_items = items[:50]
+        print(f"▶️ 관련 기사 {len(target_items)}개 발견! AI에게 한 번에 던져 필터링을 시작합니다... (API 호출 1회)")
         
-        for item in items[:10]:
-            title = item.title.text
-            link = item.link.text
+        # 50개의 제목을 하나의 텍스트로 예쁘게 묶기
+        titles_text = ""
+        for i, item in enumerate(target_items):
+            titles_text += f"[{i}] {item.title.text}\n"
             
-            print(f"  [검토 중] {title}")
+        batch_prompt = f"""
+        당신은 스마트폰 트렌드 분석가입니다. 다음은 구글 뉴스에서 수집한 스마트폰 관련 기사 제목 {len(target_items)}개입니다.
+        이 중에서 주요 스마트폰(삼성, 애플, 구글, 샤오미, 비보, 오포, 화웨이 등)의 새로운 '공식 신제품 발표'나 '공식 스펙 공개'를 다루고 있는 기사의 번호만 골라주세요.
+        단순 루머, 케이스 유출, 칩셋 단독 발표, 출시 국가 확대 소식은 무시하세요.
+        해당하는 기사가 없다면 '없음'이라고 답하고, 있다면 '[번호]' 형식으로만 답해주세요. (예: [3])
+        
+        기사 목록:
+        {titles_text}
+        """
+        
+        filter_result = ai_model.generate_content(batch_prompt).text.strip()
+        print(f"  ㄴ 🤖 AI 판단 결과: {filter_result}")
+        
+        # 정규식으로 [숫자] 형태의 번호만 쏙 뽑아내기
+        matched_indices = re.findall(r'\[(\d+)\]', filter_result)
+        
+        if not matched_indices:
+            print("✔️ 50개의 기사 중 '공식 신제품 출시'에 해당하는 기사는 없었습니다.")
+            return None
             
-            check_prompt = f"기사 제목: '{title}'\n이 기사가 주요 스마트폰(삼성, 애플, 구글, 샤오미, 비보 등)의 새로운 '공식 신제품 발표'나 '공식 스펙 공개'를 다루고 있나요? 단순 루머나 케이스 유출, 칩셋 단독 발표라면 '아니오', 진짜 스마트폰 신제품 발표라면 '예'로만 답하세요."
-            is_release = ai_model.generate_content(check_prompt).text.strip()
+        # 첫 번째로 발견된 신제품 기사의 번호 채택
+        target_index = int(matched_indices[0])
+        if target_index >= len(target_items):
+            return None
             
-            if "예" in is_release or "Yes" in is_release:
-                print(f"\n🚨 [감지 성공] 신제품 기사 채택! 본문 및 스펙 추출을 시작합니다...\n")
-                
-                try:
-                    headers = {"User-Agent": "Mozilla/5.0"}
-                    art_resp = requests.get(link, headers=headers, timeout=10)
-                    art_soup = BeautifulSoup(art_resp.text, 'html.parser')
-                    article_text = "\n".join([p.text for p in art_soup.find_all('p')])
-                except Exception:
-                    article_text = "본문 수집 지연. 기사 제목을 바탕으로 스펙을 추론합니다."
+        selected_item = target_items[target_index]
+        title = selected_item.title.text
+        link = selected_item.link.text
+        
+        print(f"\n🚨 [감지 성공] {target_index}번 기사 채택: {title}\n본문 및 스펙 추출을 시작합니다... (API 호출 2회차)\n")
+        
+        # 기사 본문 스크랩
+        try:
+            headers = {"User-Agent": "Mozilla/5.0"}
+            art_resp = requests.get(link, headers=headers, timeout=10)
+            art_soup = BeautifulSoup(art_resp.text, 'html.parser')
+            article_text = "\n".join([p.text for p in art_soup.find_all('p')])
+        except Exception:
+            article_text = "본문 수집 지연. 기사 제목을 바탕으로 스펙을 추론합니다."
 
-                spec_prompt = f"다음 스마트폰 출시 기사에서 핵심 스펙을 추출해 주세요.\n제목: {title}\n본문: {article_text[:2000]}\n\n출력 형식:\n모델명:\nAP(칩셋):\n디스플레이:\n배터리:\n카메라:"
-                extracted_specs = ai_model.generate_content(spec_prompt).text
-                
-                return {"model": title, "specs": extracted_specs, "url": link}
-            
-            time.sleep(1)
-            
-        print("✔️ 지난 24시간 내에 '공식 신제품 출시'에 해당하는 기사는 없었습니다.")
-        return None
+        spec_prompt = f"다음 스마트폰 출시 기사에서 핵심 스펙을 추출해 주세요.\n제목: {title}\n본문: {article_text[:2000]}\n\n출력 형식:\n모델명:\nAP(칩셋):\n디스플레이:\n배터리:\n카메라:"
+        extracted_specs = ai_model.generate_content(spec_prompt).text
+        
+        return {"model": title, "specs": extracted_specs, "url": link}
 
     except Exception as e:
-        print(f"⚠️ 구글 뉴스 검색 중 에러 발생: {e}")
+        print(f"⚠️ 에러 발생: {e}")
         return None
 
 # ==========================================
@@ -89,7 +112,7 @@ def find_and_extract_new_release():
 # ==========================================
 def generate_ai_insight(device_data):
     if not device_data: return "신제품이 감지되지 않았습니다."
-    print("🧠 [분석] 골드 스탠다드 대조 및 인사이트 도출 중...")
+    print("🧠 [분석] 골드 스탠다드 대조 및 인사이트 도출 중... (API 호출 3회차)")
     service = get_sheets_service()
     benchmarks = "벤치마크 데이터를 불러오지 못했습니다."
     try:
@@ -122,17 +145,15 @@ def save_to_cumulative_sheet(device_data, insight_text):
     try:
         current_date = datetime.datetime.now().strftime("%Y-%m-%d")
         
-        # 1) 스펙_누적_데이터 시트에 풀 스펙 저장
         range_name_accum = "스펙_누적_데이터!A:F"
-        row_data_accum = [current_date, "Google News (24h)", device_data['model'], device_data['specs'], device_data['url']]
+        row_data_accum = [current_date, "Google News (Batch 50)", device_data['model'], device_data['specs'], device_data['url']]
         service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID, range=range_name_accum,
             valueInputOption="USER_ENTERED", body={'values': [row_data_accum]}
         ).execute()
 
-        # 2) 오늘의_신제품 시트에 핵심 인사이트 요약본 저장
         range_name_today = "오늘의_신제품!A:E"
-        row_data_today = [current_date, device_data['model'], "AI 감지", device_data['url'], insight_text]
+        row_data_today = [current_date, device_data['model'], "AI 감지 (일괄)", device_data['url'], insight_text]
         service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID, range=range_name_today,
             valueInputOption="USER_ENTERED", body={'values': [row_data_today]}
@@ -146,17 +167,13 @@ def save_to_cumulative_sheet(device_data, insight_text):
 # 🤖 메인 파이프라인
 # ==========================================
 if __name__ == "__main__":
-    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🤖 스마트폰 인사이트 봇 가동 (구글 검색 엔진)")
+    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🤖 스마트폰 인사이트 봇 가동 (일괄 필터링 & 6/27 테스트)")
     
     device_data = find_and_extract_new_release()
     
     if device_data:
         print(f"\n📱 [추출된 데이터 요약]\n{device_data['specs']}\n")
-        
-        # 시트 두 곳에 모두 저장하기 위해 인사이트를 먼저 뽑아냅니다.
         insight = generate_ai_insight(device_data)
-        
-        # 스펙과 인사이트를 한 번에 구글 시트로 전송합니다.
         save_to_cumulative_sheet(device_data, insight)
         
         print("\n--- 📝 대시보드 게시용 AI 요약 리포트 ---")
@@ -164,4 +181,4 @@ if __name__ == "__main__":
         print("----------------------------------------\n")
         print("✅ 모든 데이터 파이프라인이 성공적으로 완료되었습니다!")
     else:
-        print("✅ 시스템 정상 작동: 최근 24시간 내에 출시된 스마트폰이 없습니다.")
+        print("✅ 시스템 정상 작동: 지정된 기간 내에 출시된 신제품이 없습니다.")
