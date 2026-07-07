@@ -17,11 +17,11 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: 필수 라이브러리 설치하기 (OpenAI 대신 Gemini 설치)
+    - name: 필수 라이브러리 설치하기 (lxml 돋보기 추가!)
       run: |
-        pip install requests beautifulsoup4 google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client google-generativeai
+        pip install requests beautifulsoup4 lxml google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client google-generativeai
 
-    - name: 자동화 엔진 가동 (데이터 수집 ➡️ 분석 ➡️ 대시보드 갱신)
+    - name: 자동화 엔진 가동
       env:
         TZ: "Asia/Seoul"
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
