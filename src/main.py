@@ -46,12 +46,12 @@ def find_and_extract_new_release():
             print("⚠️ 검색된 기사가 없습니다.")
             return None
             
-        print(f"▶️ 관련 기사 발견! 최대 20개를 하나씩 정밀 검사합니다...")
+        print(f"▶️ 관련 기사 발견! 최대 40개를 하나씩 정밀 검사합니다...")
         
-        for i, item in enumerate(items[:20]):
+        for i, item in enumerate(items[:40]):
             title = item.title.text
             link = item.link.text
-            print(f"[{i+1}/20] 검사 중: {title}")
+            print(f"[{i+1}/40] 검사 중: {title}")
             
             # 1차 필터링: 루머/유출 단어 제외
             if any(w in title.lower() for w in ['rumor', 'leak', 'concept', 'reportedly']):
