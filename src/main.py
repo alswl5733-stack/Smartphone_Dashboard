@@ -66,7 +66,8 @@ def detect_new_releases():
                 print(f"  ㄴ 🚨 감지 성공: {model_name}")
                 found_models.append({"model_name": model_name, "primary_url": link, "intro_text": article_text})
                 
-            time.sleep(4) 
+            # 💡 1분 15회 제한 준수 (5초 대기)
+            time.sleep(5) 
             
         return found_models
     except Exception as e:
@@ -87,7 +88,8 @@ def deduplicate_models(models):
                 is_duplicate = True
                 print(f"  ㄴ 🗑️ 중복 제외됨: {item['model_name']} (기존 '{u_item['model_name']}'와 동일 기기)")
                 break
-            time.sleep(2)
+            # 💡 1분 15회 제한 준수 (5초 대기)
+            time.sleep(5)
             
         if not is_duplicate:
             unique_models.append(item)
@@ -98,7 +100,6 @@ def deduplicate_models(models):
 def fetch_detailed_specs(model_name, intro_text):
     print(f"🔍 [{model_name}] 세부 스펙 2차 검색 중...")
     
-    # 검색어에 specifications 및 출시일(release date, launch date) 추가
     search_query = f'"{model_name}" (specs OR specifications OR processor OR display OR battery OR camera OR "release date" OR "launch date")'
     url = f"https://news.google.com/rss/search?q={search_query}&hl=en-US&gl=US&ceid=US:en"
     combined_text = intro_text + "\n"
@@ -127,7 +128,10 @@ def fetch_detailed_specs(model_name, intro_text):
         배터리:
         카메라:
         """
-        return lite_model.generate_content(spec_prompt).text
+        result = lite_model.generate_content(spec_prompt).text
+        # 💡 API 호출 후 안전 대기
+        time.sleep(5)
+        return result
     except Exception as e:
         return f"스펙 수집 실패: {e}"
 
@@ -163,8 +167,8 @@ def generate_batch_insights(specs_list):
     """
     
     try:
-        time.sleep(5)
         response = pro_model.generate_content(prompt).text
+        time.sleep(5)
         
         insights = []
         for i in range(len(specs_list)):
@@ -194,7 +198,7 @@ def save_to_cumulative_sheet(model_name, specs, url, insight_text):
     except Exception as e: print(f"⚠️ 저장 에러: {e}")
 
 if __name__ == "__main__":
-    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 시스템 가동 (키워드 최적화 및 일괄 처리 모드)")
+    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 시스템 가동 (키워드 최적화 및 일괄 처리 모드 - 에러 방어 적용)")
     
     detected_models = detect_new_releases()
     unique_models = deduplicate_models(detected_models)
