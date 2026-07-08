@@ -208,7 +208,7 @@ def main():
         return
         
     for model_name in new_models:
-        time.sleep(5) # API 과부하 방지 안전 대기
+        time.sleep(20) # ⏳ 구글 API 1분당 요청 제한(RPM) 회피를 위해 20초 대기
         spec_data = analyze_and_extract_specs(model_name, gold_standards)
         
         if spec_data:
