@@ -97,49 +97,171 @@ def deduplicate_models(models):
             
     return unique_models
 
+def fetch_article_text(url, max_paragraphs=15):
+    try:
+        res = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=12,
+            allow_redirects=True
+        )
+        soup = BeautifulSoup(res.text, "html.parser")
+
+        for tag in soup(["script", "style", "noscript", "header", "footer", "nav"]):
+            tag.decompose()
+
+        paragraphs = []
+        for p in soup.find_all("p"):
+            txt = re.sub(r"\s+", " ", p.get_text(" ", strip=True)).strip()
+            if len(txt) >= 40:
+                paragraphs.append(txt)
+
+        return "\n".join(paragraphs[:max_paragraphs]).strip()
+
+    except Exception:
+        return ""
+
+
+def build_detail_queries(model_name):
+    return [
+        f'"{model_name}" "specifications"',
+        f'"{model_name}" "specs"',
+        f'"{model_name}" "release date"',
+        f'"{model_name}" "launch date"',
+        f'"{model_name}" "processor" "battery" "camera"',
+        f'"{model_name}" "display" "chipset" "camera"',
+        f'"{model_name}" "price" "specifications"',
+        f'"{model_name}" "official" "specifications"',
+        f'"{model_name}" "GSMArena"',
+        f'"{model_name}" "PhoneArena"',
+        f'"{model_name}" "Notebookcheck"',
+        f'"{model_name}" "Android Authority"',
+    ]
+
+
 def fetch_detailed_specs(model_name, intro_text):
     print(f"🔍 [{model_name}] 세부 스펙 2차 검색 중...")
-    
-    search_query = f'"{model_name}" (specs OR specifications OR processor OR display OR battery OR camera OR "release date" OR "launch date")'
-    url = f"https://news.google.com/rss/search?q={search_query}&hl=en-US&gl=US&ceid=US:en"
-    combined_text = intro_text + "\n"
-    
+
+    today_date = datetime.datetime.now().strftime("%Y년 %m월 %d일")
+    collected_sources = []
+    seen_links = set()
+
     try:
-        response = requests.get(url, timeout=10)
-        soup = BeautifulSoup(response.content, 'xml')
-        items = soup.find_all('item')
-        
-        for item in items[:2]:
+        queries = build_detail_queries(model_name)
+
+        for q in queries[:10]:
+            encoded_query = requests.utils.quote(q)
+            url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
+
             try:
-                res = requests.get(item.link.text, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-                combined_text += "\n".join([p.text for p in BeautifulSoup(res.text, 'html.parser').find_all('p')[:3]]) + "\n"
-            except: pass
-            time.sleep(3) 
-            
-        # 💡 [변경] 현재 날짜를 구해서 프롬프트에 주입 (상대적 날짜 계산 및 환각 방지)
-        today_date = datetime.datetime.now().strftime("%Y년 %m월 %d일")
-            
+                response = requests.get(url, timeout=10)
+                soup = BeautifulSoup(response.content, "xml")
+                items = soup.find_all("item")
+            except Exception:
+                continue
+
+            for item in items[:5]:
+                title = item.title.text if item.title else ""
+                link = item.link.text if item.link else ""
+
+                if not link or link in seen_links:
+                    continue
+
+                seen_links.add(link)
+
+                article_text = fetch_article_text(link, max_paragraphs=15)
+
+                if len(article_text) < 250:
+                    continue
+
+                collected_sources.append({
+                    "title": title,
+                    "url": link,
+                    "text": article_text[:3000]
+                })
+
+                print(f"  ㄴ 수집: {title[:80]}")
+
+                if len(collected_sources) >= 10:
+                    break
+
+                time.sleep(2)
+
+            if len(collected_sources) >= 10:
+                break
+
+            time.sleep(2)
+
+        if not collected_sources:
+            return f"""
+모델명: {model_name}
+출시 상태: 기사 내 확인 불가
+발표 연월: 기사 내 확인 불가
+출시 연월: 기사 내 확인 불가
+AP(칩셋): 기사 내 확인 불가
+디스플레이: 기사 내 확인 불가
+배터리: 기사 내 확인 불가
+카메라: 기사 내 확인 불가
+가격: 기사 내 확인 불가
+정보 신뢰도: 낮음
+세부정보 부족 여부: 매우 부족
+근거 요약:
+- 세부 스펙을 확인할 수 있는 충분한 출처를 찾지 못했습니다.
+"""
+
+        source_text = f"[Initial Detection Article]\n{intro_text[:2500]}\n\n"
+
+        for idx, src in enumerate(collected_sources):
+            source_text += f"""
+[Source {idx + 1}]
+Title: {src["title"]}
+URL: {src["url"]}
+Text:
+{src["text"]}
+
+"""
+
         spec_prompt = f"""
-        현재 날짜는 {today_date}입니다.
-        수집된 정보: {combined_text[:3000]}
-        
-        위 정보를 바탕으로 '{model_name}'의 세부 스펙을 추출해 주세요.
-        
-        [출시 연월 추출 주의사항]
-        - 기사 본문에 "today", "this week" 등으로 표현된 경우, 현재 날짜({today_date})를 기준으로 정확한 연/월을 계산하세요.
-        - 공식적인 출시(또는 발표) 일정이 기재되어 있지 않거나 추측만 있다면 절대 지어내지 말고 "미정" 또는 "기사 내 확인 불가"로 적으세요.
-        
-        출력 형식:
-        모델명: {model_name}
-        출시 연월:
-        AP(칩셋):
-        디스플레이:
-        배터리:
-        카메라:
-        """
+현재 날짜는 {today_date}입니다.
+
+아래는 '{model_name}'에 대해 수집된 기사/웹 문서 내용입니다.
+
+{source_text[:22000]}
+
+당신은 스마트폰 신제품 세부 정보를 추출하는 분석가입니다.
+
+규칙:
+1. 제공된 본문에 명시된 정보만 사용하세요.
+2. 본문에 없는 스펙은 추정하지 말고 "기사 내 확인 불가"라고 쓰세요.
+3. rumored, leaked, expected, tipped, reportedly, likely, may, could 등의 표현이 붙은 정보는 "루머/예상"으로 표시하세요.
+4. 공식 발표, 제조사 발표, 출시 기사에서 명확히 언급된 정보만 "확정"으로 표시하세요.
+5. 서로 다른 출처의 정보가 충돌하면 "출처 간 불일치"라고 표시하세요.
+6. 출시일과 발표일을 구분하세요.
+7. 상대 날짜는 현재 날짜 {today_date} 기준으로 계산하세요.
+
+출력 형식:
+모델명: {model_name}
+출시 상태: 공식 출시 / 공식 발표 / 사전예약 / 루머·유출 / 기사 내 확인 불가
+발표 연월:
+출시 연월:
+AP(칩셋):
+디스플레이:
+배터리:
+카메라:
+가격:
+주요 특징:
+정보 신뢰도: 높음 / 중간 / 낮음
+세부정보 부족 여부: 충분 / 일부 부족 / 매우 부족
+근거 요약:
+-
+참고 출처:
+-
+"""
+
         result = lite_model.generate_content(spec_prompt).text
         time.sleep(5)
         return result
+
     except Exception as e:
         return f"스펙 수집 실패: {e}"
 
