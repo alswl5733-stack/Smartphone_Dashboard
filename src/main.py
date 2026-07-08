@@ -29,8 +29,10 @@ def get_sheets_service():
     return build('sheets', 'v4', credentials=creds)
 
 def detect_new_releases():
-    print("📡 [1단계: 정찰] 기사 최대 200개를 검사하여 신제품 모델명을 찾습니다...")
-    url = "https://news.google.com/rss/search?q=smartphone+(launch+OR+announcement)+after:2026-06-25+before:2026-06-28&hl=en-US&gl=US&ceid=US:en"
+    print("📡 [1단계: 정찰] 최근 24시간 내의 기사 최대 200개를 검사합니다...")
+    
+    # 💡 [변경] 실전 가동을 위해 최근 24시간(when:1d) 검색어로 변경
+    url = "https://news.google.com/rss/search?q=smartphone+(launch+OR+announcement)+when:1d&hl=en-US&gl=US&ceid=US:en"
     
     found_models = []
     try:
@@ -66,7 +68,6 @@ def detect_new_releases():
                 print(f"  ㄴ 🚨 감지 성공: {model_name}")
                 found_models.append({"model_name": model_name, "primary_url": link, "intro_text": article_text})
                 
-            # 💡 1분 15회 제한 준수 (5초 대기)
             time.sleep(5) 
             
         return found_models
@@ -88,7 +89,6 @@ def deduplicate_models(models):
                 is_duplicate = True
                 print(f"  ㄴ 🗑️ 중복 제외됨: {item['model_name']} (기존 '{u_item['model_name']}'와 동일 기기)")
                 break
-            # 💡 1분 15회 제한 준수 (5초 대기)
             time.sleep(5)
             
         if not is_duplicate:
@@ -116,9 +116,18 @@ def fetch_detailed_specs(model_name, intro_text):
             except: pass
             time.sleep(3) 
             
+        # 💡 [변경] 현재 날짜를 구해서 프롬프트에 주입 (상대적 날짜 계산 및 환각 방지)
+        today_date = datetime.datetime.now().strftime("%Y년 %m월 %d일")
+            
         spec_prompt = f"""
+        현재 날짜는 {today_date}입니다.
         수집된 정보: {combined_text[:3000]}
+        
         위 정보를 바탕으로 '{model_name}'의 세부 스펙을 추출해 주세요.
+        
+        [출시 연월 추출 주의사항]
+        - 기사 본문에 "today", "this week" 등으로 표현된 경우, 현재 날짜({today_date})를 기준으로 정확한 연/월을 계산하세요.
+        - 공식적인 출시(또는 발표) 일정이 기재되어 있지 않거나 추측만 있다면 절대 지어내지 말고 "미정" 또는 "기사 내 확인 불가"로 적으세요.
         
         출력 형식:
         모델명: {model_name}
@@ -129,7 +138,6 @@ def fetch_detailed_specs(model_name, intro_text):
         카메라:
         """
         result = lite_model.generate_content(spec_prompt).text
-        # 💡 API 호출 후 안전 대기
         time.sleep(5)
         return result
     except Exception as e:
@@ -189,16 +197,16 @@ def save_to_cumulative_sheet(model_name, specs, url, insight_text):
         current_date = datetime.datetime.now().strftime("%Y-%m-%d")
         service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID, range="스펙_누적_데이터!A:F",
-            valueInputOption="USER_ENTERED", body={'values': [[current_date, "Google News (Batch)", model_name, specs, url]]}
+            valueInputOption="USER_ENTERED", body={'values': [[current_date, "Google News (Batch/Live)", model_name, specs, url]]}
         ).execute()
         service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID, range="오늘의_신제품!A:E",
-            valueInputOption="USER_ENTERED", body={'values': [[current_date, model_name, "AI 감지 (Batch)", url, insight_text]]}
+            valueInputOption="USER_ENTERED", body={'values': [[current_date, model_name, "AI 감지 (Batch/Live)", url, insight_text]]}
         ).execute()
     except Exception as e: print(f"⚠️ 저장 에러: {e}")
 
 if __name__ == "__main__":
-    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 시스템 가동 (키워드 최적화 및 일괄 처리 모드 - 에러 방어 적용)")
+    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 시스템 실전 가동 (최근 24시간 스캔 & 날짜 정확도 강화)")
     
     detected_models = detect_new_releases()
     unique_models = deduplicate_models(detected_models)
