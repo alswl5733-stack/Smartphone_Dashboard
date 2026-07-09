@@ -43,7 +43,7 @@ def get_gold_standards(service):
                 return row[idx] if len(row) > idx and row[idx] else "N/A"
                 
             gold_standards.append({
-                "models명": get_val(1),
+                "모델명": get_val(1),
                 "제조사": get_val(2),
                 "AP_모델명": get_val(10),
                 "RAM": get_val(12),
@@ -104,85 +104,7 @@ def analyze_specs_from_crawl(model_name, gold_standards):
     
     benchmark_text = ""
     for g in gold_standards:
-        benchmark_text += f"- {g['제조사']} {g['models명']} (AP:{g['AP_모델명']}, RAM:{g['RAM']}, 배터리:{g['배터리_용량']}, 카메라:{g['카메라_화소']}, 디스플레이:{g['디스플레이_특이사항']}, 화면크기:{g['화면크기']})\n"
+        benchmark_text += f"- {g['제조사']} {g['모델명']} (AP:{g['AP_모델명']}, RAM:{g['RAM']}, 배터리:{g['배터리_용량']}, 카메라:{g['카메라_화소']}, 디스플레이:{g['디스플레이_특이사항']}, 화면크기:{g['화면크기']})\n"
     
     prompt = f"""
-    너의 지식을 바탕으로 스마트폰 '{model_name}'의 핵심 스펙을 명확하게 정리해줘.
-    필수 포함 항목: 제조사, 제품레벨, 폼팩터, AP 모델명, RAM, 배터리 용량, 화면 크기, 전작 대비 개선점, 카메라 화소, 디스플레이 특이 사항.
-    
-    그리고 제시된 [골드 스탠다드 모델들]의 스펙과 비교하여 우위 포인트를 분석해줘.
-    
-    [글로벌 벤치마크 모델들]
-    {benchmark_text}
-    
-    반드시 아래 JSON 형식으로만 출력해:
-    {{
-        "출시연월": "YYYY-MM 형태",
-        "모델명": "{model_name}",
-        "제조사": "",
-        "제품레벨": "플래그십/중급형/보급형 중 택1",
-        "폼팩터": "Bar/Foldable 중 택1",
-        "AP_모델명": "",
-        "RAM": "",
-        "배터리_용량": "",
-        "화면크기": "",
-        "카메라_화소": "메인 카메라 화소 위주 요약",
-        "디스플레이_특이사항": "디스플레이 주요 특징 1줄 요약",
-        "전작대비_개선점": "1줄 요약",
-        "벤치마크_우위포인트": "골드 스탠다드 대비 차별화 포인트 2줄 이내"
-    }}
-    """
-    try:
-        response = model.generate_content(prompt)
-        text_result = response.text.replace("```json", "").replace("```", "").strip()
-        data = json.loads(text_result)
-        return data
-    except Exception as e:
-        print(f"⚠️ [에러] '{model_name}' 분석 중 에러 발생: {e}")
-        return None
-
-# ---------------------------------------------------------
-# 5. 구글 시트 저장
-# ---------------------------------------------------------
-def save_to_sheets(service, data):
-    print(f"💾 [3단계] '{data['모델명']}' 데이터를 구글 시트에 누적 저장합니다...")
-    
-    today_row = [
-        datetime.now().strftime("%Y-%m-%d"), 
-        data.get("모델명", ""), data.get("제조사", ""), "-", 
-        data.get("벤치마크_우위포인트", "")
-    ]
-    service.spreadsheets().values().append(
-        spreadsheetId=SPREADSHEET_ID, range="오늘의_신제품!A:E",
-        valueInputOption="USER_ENTERED", body={"values": [today_row]}
-    ).execute()
-
-    spec_row = [""] * 43
-    spec_row[0] = data.get("출시연월", "")
-    spec_row[1] = data.get("모델명", "")
-    spec_row[2] = data.get("제조사", "")
-    spec_row[3] = data.get("제품레벨", "")
-    spec_row[4] = data.get("폼팩터", "")
-    spec_row[10] = data.get("AP_모델명", "")
-    spec_row[12] = data.get("RAM", "")
-    spec_row[15] = data.get("배터리_용량", "")
-    spec_row[19] = data.get("카메라_화소", "")
-    spec_row[23] = data.get("디스플레이_특이사항", "")
-    spec_row[24] = data.get("화면크기", "")
-    spec_row[41] = data.get("전작대비_개선점", "")
-    spec_row[42] = data.get("벤치마크_우위포인트", "")
-    
-    service.spreadsheets().values().append(
-        spreadsheetId=SPREADSHEET_ID, range="스펙_누적_데이터!A:AQ",
-        valueInputOption="USER_ENTERED", body={"values": [spec_row]}
-    ).execute()
-    print("✅ 시트 누적 성공!")
-
-# ---------------------------------------------------------
-# 메인 파이프라인
-# ---------------------------------------------------------
-def main():
-    print("🚀 스마트폰 뉴스 크롤링 기반 안정 모드 가동 시작...")
-    service = get_sheets_service()
-    
-    gold_standards =
+    너의 지식을 바탕으로 스마트폰 '{model_name}'의 핵심 스펙을 명확하게
