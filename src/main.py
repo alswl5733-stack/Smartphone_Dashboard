@@ -25,10 +25,10 @@ def get_sheets_service():
     return build('sheets', 'v4', credentials=creds)
 
 # ---------------------------------------------------------
-# 2. 골드 스탠다드(벤치마크) 불러오기 (16개 항목 확장)
+# 2. 골드 스탠다드(벤치마크) 불러오기 (맞춤형 스펙 + RAM)
 # ---------------------------------------------------------
 def get_gold_standards(service):
-    print("🔍 [준비] 구글 시트에서 프리미엄 벤치마크 데이터를 불러옵니다...")
+    print("🔍 [준비] 구글 시트에서 프리미엄 벤치마크 데이터를 불러옵니다 (맞춤형 스펙)...")
     result = service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID, range="골드_스탠다드!A2:AQ"
     ).execute()
@@ -37,7 +37,6 @@ def get_gold_standards(service):
     gold_standards = []
     for row in rows:
         if len(row) > 2:
-            # 안전한 데이터 추출을 위한 헬퍼 함수
             def get_val(idx):
                 return row[idx] if len(row) > idx and row[idx] else "N/A"
                 
@@ -45,17 +44,11 @@ def get_gold_standards(service):
                 "모델명": get_val(1),
                 "제조사": get_val(2),
                 "AP_모델명": get_val(10),
-                "AP_nm공정": get_val(11),
-                "RAM": get_val(12),
-                "ROM": get_val(13),
+                "RAM": get_val(12), # RAM 항목 추가
                 "배터리_용량": get_val(15),
-                "충전속도": get_val(16),
-                "카메라": get_val(19),
-                "디스플레이_타입": get_val(23),
-                "화면크기": get_val(24),
-                "ppi": get_val(25),
-                "주사율": get_val(27),
-                "휘도": get_val(31)
+                "카메라_화소": get_val(19),
+                "디스플레이_특이사항": get_val(23),
+                "화면크기": get_val(24)
             })
     return gold_standards
 
@@ -86,28 +79,23 @@ def detect_new_releases():
         return []
 
 # ---------------------------------------------------------
-# 4. 2단계: 16개 항목 스펙 추출 및 인사이트 분석
+# 4. 2단계: 맞춤형 스펙 추출 및 인사이트 분석
 # ---------------------------------------------------------
 def analyze_and_extract_specs(model_name, gold_standards):
-    print(f"🧠 [2단계] '{model_name}' 상세 스펙 검색 및 골드 스탠다드 대조 중...")
+    print(f"🧠 [2단계] '{model_name}' 맞춤형 스펙 검색 및 골드 스탠다드 대조 중...")
     
-    # 벤치마크 기기들의 모든 스펙을 하나의 텍스트로 묶어 AI에게 전달
+    # 벤치마크 텍스트 압축 (RAM 포함)
     benchmark_text = ""
     for g in gold_standards:
-        benchmark_text += f"""
-        - {g['제조사']} {g['모델명']} 
-          (AP: {g['AP_모델명']} {g['AP_nm공정']}, RAM/ROM: {g['RAM']}/{g['ROM']}, 
-          배터리: {g['배터리_용량']} {g['충전속도']}, 카메라: {g['카메라']}, 
-          화면: {g['화면크기']} {g['디스플레이_타입']} {g['주사율']} {g['ppi']} {g['휘도']})\n
-        """
+        benchmark_text += f"- {g['제조사']} {g['모델명']} (AP:{g['AP_모델명']}, RAM:{g['RAM']}, 배터리:{g['배터리_용량']}, 카메라:{g['카메라_화소']}, 디스플레이:{g['디스플레이_특이사항']}, 화면크기:{g['화면크기']})\n"
     
     prompt = f"""
-    구글 검색을 활용하여 방금 발표된 스마트폰 '{model_name}'의 상세 스펙을 빠짐없이 검색해줘.
-    반드시 검색해야 할 스펙 항목: 제조사, 제품레벨, 폼팩터, AP_모델명, AP_nm공정, RAM, ROM, 배터리 용량, 충전 속도, 카메라, 디스플레이 타입, 화면 크기, ppi, 주사율, 휘도, 전작 대비 개선점.
+    구글 검색을 활용하여 방금 발표된 스마트폰 '{model_name}'의 핵심 스펙만 빠르고 간결하게 검색해줘.
+    반드시 검색해야 할 스펙 항목: 제조사, 제품레벨, 폼팩터, AP 모델명, RAM, 배터리 용량, 화면 크기, 전작 대비 개선점, 카메라 화소, 디스플레이 특이 사항.
     
-    그리고 아래 제시된 [글로벌 벤치마크 모델들(골드 스탠다드)]의 상세 스펙과 위에서 찾은 신제품의 스펙을 항목별로 1:1로 정밀하게 비교해서 우위점과 인사이트를 도출해.
+    그리고 아래 제시된 [글로벌 벤치마크 모델들]의 핵심 스펙과 위에서 찾은 신제품의 스펙을 비교해서 우위점과 인사이트를 도출해.
     
-    [글로벌 벤치마크 모델들 상세 스펙]
+    [글로벌 벤치마크 모델들 핵심 스펙]
     {benchmark_text}
     
     반드시 아래의 JSON 형식에 맞춰서 데이터만 정확하게 출력해. 다른 텍스트는 덧붙이지 마.
@@ -118,19 +106,13 @@ def analyze_and_extract_specs(model_name, gold_standards):
         "제품레벨": "플래그십/중급형/보급형 중 택1",
         "폼팩터": "Bar/Foldable 중 택1",
         "AP_모델명": "",
-        "AP_nm공정": "",
         "RAM": "",
-        "ROM": "",
         "배터리_용량": "",
-        "충전속도": "",
-        "카메라": "전/후면 렌즈 및 화소 요약",
-        "디스플레이_타입": "",
         "화면크기": "",
-        "ppi": "",
-        "주사율": "",
-        "휘도": "",
+        "카메라_화소": "메인 카메라 위주로 간략히",
+        "디스플레이_특이사항": "가장 눈에 띄는 디스플레이 특징 1줄 요약",
         "전작대비_개선점": "1줄 요약",
-        "벤치마크_우위포인트": "제공된 골드 스탠다드 스펙(충전속도, 카메라, 휘도 등)과 직접 대조하여 스펙상 우위가 있거나 특이한 타겟팅 전략이 있다면 2줄 이내로 서술"
+        "벤치마크_우위포인트": "골드 스탠다드 대비 스펙상 우위나 포지셔닝 전략을 2줄 이내로 서술"
     }}
     """
     try:
@@ -143,7 +125,7 @@ def analyze_and_extract_specs(model_name, gold_standards):
         return None
 
 # ---------------------------------------------------------
-# 5. 구글 시트 맵핑 및 저장
+# 5. 구글 시트 맵핑 및 저장 (43열 구조에 맞춤)
 # ---------------------------------------------------------
 def save_to_sheets(service, data):
     print(f"💾 [3단계] '{data['모델명']}' 데이터를 구글 시트에 저장합니다...")
@@ -163,7 +145,7 @@ def save_to_sheets(service, data):
         body={"values": [today_row]}
     ).execute()
 
-    # 2. 스펙_누적_데이터 시트에 추가 (43열 구조에 맞춰 정확한 인덱스에 매핑)
+    # 2. 스펙_누적_데이터 시트에 추가 (추출한 항목만 정확한 인덱스에 매핑)
     spec_row = [""] * 43
     spec_row[0] = data.get("출시연월", "")
     spec_row[1] = data.get("모델명", "")
@@ -171,17 +153,11 @@ def save_to_sheets(service, data):
     spec_row[3] = data.get("제품레벨", "")
     spec_row[4] = data.get("폼팩터", "")
     spec_row[10] = data.get("AP_모델명", "")
-    spec_row[11] = data.get("AP_nm공정", "")
-    spec_row[12] = data.get("RAM", "")
-    spec_row[13] = data.get("ROM", "")
+    spec_row[12] = data.get("RAM", "") # RAM 저장 위치 맵핑
     spec_row[15] = data.get("배터리_용량", "")
-    spec_row[16] = data.get("충전속도", "")
-    spec_row[19] = data.get("카메라", "")
-    spec_row[23] = data.get("디스플레이_타입", "")
+    spec_row[19] = data.get("카메라_화소", "")
+    spec_row[23] = data.get("디스플레이_특이사항", "")
     spec_row[24] = data.get("화면크기", "")
-    spec_row[25] = data.get("ppi", "")
-    spec_row[27] = data.get("주사율", "")
-    spec_row[31] = data.get("휘도", "")
     spec_row[41] = data.get("전작대비_개선점", "")
     spec_row[42] = data.get("벤치마크_우위포인트", "")
     
@@ -192,7 +168,6 @@ def save_to_sheets(service, data):
         body={"values": [spec_row]}
     ).execute()
     print("✅ 저장 완료!")
-
 # ---------------------------------------------------------
 # 메인 실행 파이프라인
 # ---------------------------------------------------------
