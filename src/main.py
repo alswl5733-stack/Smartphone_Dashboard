@@ -15,7 +15,7 @@ SPREADSHEET_ID = "1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o"
 
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel(
-    model_name="gemini-3.5-flash",
+    model_name="gemini-3.1-flash-lite",
     tools="google_search_retrieval"
 )
 
