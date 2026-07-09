@@ -3,7 +3,7 @@ import json
 import datetime
 import time
 import requests
-import re
+import urllib.parse  # 💡 추가된 필수 라이브러리
 from bs4 import BeautifulSoup
 import google.generativeai as genai
 from google.oauth2 import service_account
@@ -31,7 +31,6 @@ def get_sheets_service():
 def detect_new_releases():
     print("📡 [1단계: 정찰] 최근 24시간 내의 기사 최대 200개를 검사합니다...")
     
-    # 💡 [변경] 실전 가동을 위해 최근 24시간(when:1d) 검색어로 변경
     url = "https://news.google.com/rss/search?q=smartphone+(launch+OR+announcement)+when:1d&hl=en-US&gl=US&ceid=US:en"
     
     found_models = []
@@ -100,26 +99,23 @@ def deduplicate_models(models):
 def fetch_detailed_specs(model_name, intro_text):
     print(f"🔍 [{model_name}] 세부 스펙 2차 검색 중...")
     
-    # 💡 [해결 1] 복잡한 검색어를 구글이 100% 이해할 수 있도록 URL 특수문자 인코딩 적용
-    raw_query = f'"{model_name}" (specs OR specifications OR processor OR display OR battery OR camera OR "release date" OR "launch date")'
-    search_query = urllib.parse.quote(raw_query)
-    url = f"https://news.google.com/rss/search?q={search_query}&hl=en-US&gl=US&ceid=US:en"
-    
-    combined_text = intro_text + "\n"
-    
     try:
+        # 💡 에러 방지를 위해 변환 코드를 try 블록 안으로 이동
+        raw_query = f'"{model_name}" (specs OR specifications OR processor OR display OR battery OR camera OR "release date" OR "launch date")'
+        search_query = urllib.parse.quote(raw_query)
+        url = f"https://news.google.com/rss/search?q={search_query}&hl=en-US&gl=US&ceid=US:en"
+        
+        combined_text = intro_text + "\n"
+        
         response = requests.get(url, timeout=10)
         soup = BeautifulSoup(response.content, 'xml')
         items = soup.find_all('item')
         
-        # 기사를 3개까지 더 여유롭게 스캔합니다.
         for item in items[:3]:
             try:
                 res = requests.get(item.link.text, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
                 art_soup = BeautifulSoup(res.text, 'html.parser')
                 
-                # 💡 [해결 2] p태그(문단)뿐만 아니라 li태그(글머리기호/스펙시트)까지 싹쓸이 수집
-                # 💡 [해결 3] 3줄이 아닌 넉넉하게 25줄까지 긁어오도록 수집량 대폭 증가
                 elements = art_soup.find_all(['p', 'li'])
                 extracted_texts = [el.text.strip() for el in elements if len(el.text.strip()) > 10]
                 combined_text += "\n".join(extracted_texts[:25]) + "\n"
@@ -129,7 +125,6 @@ def fetch_detailed_specs(model_name, intro_text):
             
         today_date = datetime.datetime.now().strftime("%Y년 %m월 %d일")
             
-        # 수집된 정보 한도를 4000자까지 늘림
         spec_prompt = f"""
         현재 날짜는 {today_date}입니다.
         수집된 정보: {combined_text[:4000]}
