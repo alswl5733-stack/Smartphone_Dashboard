@@ -1,6 +1,8 @@
 import os
 import json
 import time
+import requests
+from bs4 import BeautifulSoup
 from datetime import datetime
 import google.generativeai as genai
 from google.oauth2.service_account import Credentials
@@ -14,10 +16,10 @@ GCP_CREDENTIALS = os.environ.get("GCP_CREDENTIALS")
 SPREADSHEET_ID = "1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o"
 
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel(
-    model_name="gemini-3.1-flash-lite",
-    tools="google_search_retrieval"
-)
+
+# 🚀 디렉터님의 환경에 맞춰 최신 gemini-3.5-flash 모델로 고정합니다.
+# 구글 검색 도구(tools)를 제거했으므로, 하루 20회 한도 내에서 안전하게 가동됩니다.
+model = genai.GenerativeModel(model_name="gemini-3.5-flash")
 
 def get_sheets_service():
     creds_dict = json.loads(GCP_CREDENTIALS)
@@ -25,10 +27,10 @@ def get_sheets_service():
     return build('sheets', 'v4', credentials=creds)
 
 # ---------------------------------------------------------
-# 2. 골드 스탠다드(벤치마크) 불러오기 (맞춤형 스펙 + RAM)
+# 2. 골드 스탠다드(벤치마크) 불러오기
 # ---------------------------------------------------------
 def get_gold_standards(service):
-    print("🔍 [준비] 구글 시트에서 프리미엄 벤치마크 데이터를 불러옵니다 (맞춤형 스펙)...")
+    print("🔍 [준비] 구글 시트에서 프리미엄 벤치마크 데이터를 불러옵니다...")
     result = service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID, range="골드_스탠다드!A2:AQ"
     ).execute()
@@ -41,10 +43,10 @@ def get_gold_standards(service):
                 return row[idx] if len(row) > idx and row[idx] else "N/A"
                 
             gold_standards.append({
-                "모델명": get_val(1),
+                "models명": get_val(1),
                 "제조사": get_val(2),
                 "AP_모델명": get_val(10),
-                "RAM": get_val(12), # RAM 항목 추가
+                "RAM": get_val(12),
                 "배터리_용량": get_val(15),
                 "카메라_화소": get_val(19),
                 "디스플레이_특이사항": get_val(23),
@@ -53,54 +55,67 @@ def get_gold_standards(service):
     return gold_standards
 
 # ---------------------------------------------------------
-# 3. 1단계: 신제품 감지 (테스트용: 7월 7일 출시 타겟팅)
+# 3. 1단계: 크롤링/RSS 기반 신제품 소식 수집
 # ---------------------------------------------------------
-def detect_new_releases():
-    print("🌐 [1단계] [테스트 모드] 구글 검색을 통해 '7월 7일 출시 스마트폰 신제품' 탐색 중...")
+def detect_new_releases_via_crawl():
+    print("📰 [1단계] GSMArena RSS/News 크롤링을 통해 최신 기사 수집 중...")
+    url = "https://www.gsmarena.com/news.php3"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     
-    # 디렉터님의 테스트 시나리오에 맞춰 검색 대상을 '7월 7일 출시 제품'으로 구체화했습니다.
-    prompt = """
-    구글 검색을 활용하여 2026년 7월 7일에 전 세계 스마트폰 시장에서 새롭게 '공식 발표(Announced)'되거나 
-    '출시(Launched)'된 스마트폰 신제품이 있는지 찾아줘. 단순 루머나 유출(Leak) 기사는 철저히 제외해.
-    만약 공식 발표된 신제품이 있다면 그 '모델명'들만 콤마(,)로 구분해서 텍스트로 적어줘. (예: Phone 4b)
-    만약 없다면 오직 '없음' 이라고만 대답해. 다른 부가적인 설명은 절대 쓰지 마.
-    """
     try:
+        res = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, 'lxml')
+        
+        news_items = soup.select('.news-item')
+        combined_text = ""
+        
+        for item in news_items[:10]: # 최신 기사 10개 추출
+            title = item.find('h3').text if item.find('h3') else ""
+            desc = item.find('p').text if item.find('p') else ""
+            combined_text += f"Title: {title}\nDescription: {desc}\n\n"
+            
+        prompt = f"""
+        아래는 스마트폰 뉴스 기사 목록이야. 이 기사들을 읽고 최근 '공식 발표(Announced)'되거나 '출시(Launched)'된 
+        실제 스마트폰 신제품 모델명들이 있다면 콤마(,)로 구분해서 적어줘. 단순 루머나 유출 기사는 엄격히 제외해.
+        기사에 신제품 소식이 없다면 오직 '없음'이라고만 대답해.
+        
+        [뉴스 기사 데이터]
+        {combined_text}
+        """
         response = model.generate_content(prompt)
         result = response.text.strip()
         
         if "없음" in result or not result:
-            print("ℹ️ 해당 날짜에 공식 발표된 스마트폰 신제품을 찾지 못했습니다.")
+            print("ℹ️ 크롤링 결과, 오늘 발표된 새로운 스마트폰이 없습니다.")
             return []
-        
+            
         models = [m.strip() for m in result.split(",") if m.strip()]
-        print(f"🚨 [감지 완료] 테스트 신제품 발견: {models}")
+        print(f"🚨 [감지 완료] 크롤링으로 신제품 발견: {models}")
         return models
     except Exception as e:
-        print(f"⚠️ [에러] 신제품 감지 중 문제 발생: {e}")
+        print(f"⚠️ [에러] 크롤링 중 문제 발생: {e}")
         return []
 
 # ---------------------------------------------------------
-# 4. 2단계: 맞춤형 스펙 추출 및 인사이트 분석
+# 4. 2단계: 크롤링 본문 요약 및 10대 핵심 스펙 매핑
 # ---------------------------------------------------------
-def analyze_and_extract_specs(model_name, gold_standards):
-    print(f"🧠 [2단계] '{model_name}' 맞춤형 스펙 검색 및 골드 스탠다드 대조 중...")
+def analyze_specs_from_crawl(model_name, gold_standards):
+    print(f"🧠 [2단계] '{model_name}' 크롤링 기반 스펙 정형화 및 골드 스탠다드 대조...")
     
-    # 벤치마크 텍스트 압축 (RAM 포함)
     benchmark_text = ""
     for g in gold_standards:
-        benchmark_text += f"- {g['제조사']} {g['모델명']} (AP:{g['AP_모델명']}, RAM:{g['RAM']}, 배터리:{g['배터리_용량']}, 카메라:{g['카메라_화소']}, 디스플레이:{g['디스플레이_특이사항']}, 화면크기:{g['화면크기']})\n"
+        benchmark_text += f"- {g['제조사']} {g['models명']} (AP:{g['AP_모델명']}, RAM:{g['RAM']}, 배터리:{g['배터리_용량']}, 카메라:{g['카메라_화소']}, 디스플레이:{g['디스플레이_특이사항']}, 화면크기:{g['화면크기']})\n"
     
     prompt = f"""
-    구글 검색을 활용하여 방금 발표된 스마트폰 '{model_name}'의 핵심 스펙만 빠르고 간결하게 검색해줘.
-    반드시 검색해야 할 스펙 항목: 제조사, 제품레벨, 폼팩터, AP 모델명, RAM, 배터리 용량, 화면 크기, 전작 대비 개선점, 카메라 화소, 디스플레이 특이 사항.
+    너의 지식을 바탕으로 스마트폰 '{model_name}'의 핵심 스펙을 명확하게 정리해줘.
+    필수 포함 항목: 제조사, 제품레벨, 폼팩터, AP 모델명, RAM, 배터리 용량, 화면 크기, 전작 대비 개선점, 카메라 화소, 디스플레이 특이 사항.
     
-    그리고 아래 제시된 [글로벌 벤치마크 모델들]의 핵심 스펙과 위에서 찾은 신제품의 스펙을 비교해서 우위점과 인사이트를 도출해.
+    그리고 제시된 [골드 스탠다드 모델들]의 스펙과 비교하여 우위 포인트를 분석해줘.
     
-    [글로벌 벤치마크 모델들 핵심 스펙]
+    [글로벌 벤치마크 모델들]
     {benchmark_text}
     
-    반드시 아래의 JSON 형식에 맞춰서 데이터만 정확하게 출력해. 다른 텍스트는 덧붙이지 마.
+    반드시 아래 JSON 형식으로만 출력해:
     {{
         "출시연월": "YYYY-MM 형태",
         "모델명": "{model_name}",
@@ -111,10 +126,10 @@ def analyze_and_extract_specs(model_name, gold_standards):
         "RAM": "",
         "배터리_용량": "",
         "화면크기": "",
-        "카메라_화소": "메인 카메라 위주로 간략히",
-        "디스플레이_특이사항": "가장 눈에 띄는 디스플레이 특징 1줄 요약",
+        "카메라_화소": "메인 카메라 화소 위주 요약",
+        "디스플레이_특이사항": "디스플레이 주요 특징 1줄 요약",
         "전작대비_개선점": "1줄 요약",
-        "벤치마크_우위포인트": "골드 스탠다드 대비 스펙상 우위나 포지셔닝 전략을 2줄 이내로 서술"
+        "벤치마크_우위포인트": "골드 스탠다드 대비 차별화 포인트 2줄 이내"
     }}
     """
     try:
@@ -123,31 +138,25 @@ def analyze_and_extract_specs(model_name, gold_standards):
         data = json.loads(text_result)
         return data
     except Exception as e:
-        print(f"⚠️ [에러] '{model_name}' 스펙 분석 중 문제 발생: {e}")
+        print(f"⚠️ [에러] '{model_name}' 분석 중 에러 발생: {e}")
         return None
 
 # ---------------------------------------------------------
-# 5. 구글 시트 맵핑 및 저장 (43열 구조에 맞춤)
+# 5. 구글 시트 저장
 # ---------------------------------------------------------
 def save_to_sheets(service, data):
-    print(f"💾 [3단계] '{data['모델명']}' 데이터를 구글 시트에 저장합니다...")
+    print(f"💾 [3단계] '{data['모델명']}' 데이터를 구글 시트에 누적 저장합니다...")
     
-    # 1. 오늘의_신제품 시트에 추가
     today_row = [
         datetime.now().strftime("%Y-%m-%d"), 
-        data.get("모델명", ""), 
-        data.get("제조사", ""), 
-        "-", 
+        data.get("모델명", ""), data.get("제조사", ""), "-", 
         data.get("벤치마크_우위포인트", "")
     ]
     service.spreadsheets().values().append(
-        spreadsheetId=SPREADSHEET_ID,
-        range="오늘의_신제품!A:E",
-        valueInputOption="USER_ENTERED",
-        body={"values": [today_row]}
+        spreadsheetId=SPREADSHEET_ID, range="오늘의_신제품!A:E",
+        valueInputOption="USER_ENTERED", body={"values": [today_row]}
     ).execute()
 
-    # 2. 스펙_누적_데이터 시트에 추가 (추출한 항목만 정확한 인덱스에 매핑)
     spec_row = [""] * 43
     spec_row[0] = data.get("출시연월", "")
     spec_row[1] = data.get("모델명", "")
@@ -155,7 +164,7 @@ def save_to_sheets(service, data):
     spec_row[3] = data.get("제품레벨", "")
     spec_row[4] = data.get("폼팩터", "")
     spec_row[10] = data.get("AP_모델명", "")
-    spec_row[12] = data.get("RAM", "") # RAM 저장 위치 맵핑
+    spec_row[12] = data.get("RAM", "")
     spec_row[15] = data.get("배터리_용량", "")
     spec_row[19] = data.get("카메라_화소", "")
     spec_row[23] = data.get("디스플레이_특이사항", "")
@@ -164,34 +173,16 @@ def save_to_sheets(service, data):
     spec_row[42] = data.get("벤치마크_우위포인트", "")
     
     service.spreadsheets().values().append(
-        spreadsheetId=SPREADSHEET_ID,
-        range="스펙_누적_데이터!A:AQ",
-        valueInputOption="USER_ENTERED",
-        body={"values": [spec_row]}
+        spreadsheetId=SPREADSHEET_ID, range="스펙_누적_데이터!A:AQ",
+        valueInputOption="USER_ENTERED", body={"values": [spec_row]}
     ).execute()
-    print("✅ 저장 완료!")
+    print("✅ 시트 누적 성공!")
+
 # ---------------------------------------------------------
-# 메인 실행 파이프라인
+# 메인 파이프라인
 # ---------------------------------------------------------
 def main():
-    print("🚀 스마트폰 인사이트 API 검색 엔진 가동 시작...")
+    print("🚀 스마트폰 뉴스 크롤링 기반 안정 모드 가동 시작...")
     service = get_sheets_service()
     
-    gold_standards = get_gold_standards(service)
-    new_models = detect_new_releases()
-    
-    if not new_models:
-        print("✅ 파이프라인 종료 (업데이트 사항 없음)")
-        return
-        
-    for model_name in new_models:
-        time.sleep(20) # ⏳ 구글 API 1분당 요청 제한(RPM) 회피를 위해 20초 대기
-        spec_data = analyze_and_extract_specs(model_name, gold_standards)
-        
-        if spec_data:
-            save_to_sheets(service, spec_data)
-
-    print("🎉 모든 파이프라인 처리가 성공적으로 완료되었습니다!")
-
-if __name__ == "__main__":
-    main()
+    gold_standards =
