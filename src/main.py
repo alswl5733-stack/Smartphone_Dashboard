@@ -32,7 +32,7 @@ def get_kst_dates():
     kst = datetime.timezone(datetime.timedelta(hours=9))
     
     # 💡 [테스트용 타임머신] 시스템의 오늘 날짜를 2026년 7월 8일로 강제 고정
-    today = datetime.datetime(2026, 7, 8, 12, 0, 0, tzinfo=kst)
+    today = datetime.datetime(2026, 7, 1, 12, 0, 0, tzinfo=kst)
     yesterday = today - datetime.timedelta(days=1)
     tomorrow = today + datetime.timedelta(days=1)
 
@@ -163,7 +163,7 @@ def fetch_usp_and_target(model_name, intro_text):
             
         usp_prompt = f"""
         수집된 정보: {combined_text[:4000]}
-        위 출시 정보를 바탕으로 '{model_name}'의 마케팅 전략 핵심 요소를 추출해 주세요.
+        위 출시 정보를 바탕으로 '{model_name}'의 핵심 기술 및 마케팅 요소를 추출해 주세요.
         정확히 명시되지 않았다면 기사 문맥을 바탕으로 기획자적 관점에서 추론하여 작성하세요.
         
         출력 형식:
