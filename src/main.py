@@ -99,7 +99,7 @@ def detect_new_releases():
             초반부: '{article_text}'
             
             이 기사가 "전 세계 최초로 공식 발표(First Global Unveil)" 또는 "최초 출시"된 스마트폰 신제품을 다루고 있나요?
-
+            <엄격한 판별 기준>
             """
             
             ai_response = lite_model.generate_content(check_prompt).text.strip()
@@ -196,8 +196,7 @@ def generate_batch_insights(strategy_list):
     시사점 내용...
     ### 제품 1
     시사점 내용...
-    """
-    
+    """    
     try:
         response = pro_model.generate_content(prompt).text
         time.sleep(5)
@@ -218,7 +217,6 @@ def save_to_cumulative_sheet(model_name, strategy_text, url, insight_text):
     service = get_sheets_service()
     if not service: return
     try:
-        # 💡 [테스트용 타임머신] 구글 시트에 기록되는 날짜도 7월 8일로 속입니다.
         current_date = "2026-07-08"
         
         service.spreadsheets().values().append(
@@ -233,7 +231,6 @@ def save_to_cumulative_sheet(model_name, strategy_text, url, insight_text):
         print(f"⚠️ 시트 저장 에러: {e}")
 
 if __name__ == "__main__":
-    # 💡 [테스트용 타임머신] 시스템 시작 메시지에도 7월 8일을 출력합니다.
     print(f"[2026-07-08 12:00:00] 🚀 명시적 날짜 & 구글 시트 DB 중복 필터링 시스템 가동 (타임머신 테스트 모드: 7월 8일)")
     
     existing_models_in_db = get_existing_models_from_sheet()
