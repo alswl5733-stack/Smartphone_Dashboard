@@ -16,8 +16,8 @@ gcp_creds_json = os.environ.get("GCP_CREDENTIALS")
 
 if gemini_key:
     genai.configure(api_key=gemini_key)
-    lite_model = genai.GenerativeModel('gemini-3.1-flash-lite') # 맥락 추출용
-    pro_model = genai.GenerativeModel('gemini-3.5-flash')       # 전략 인사이트용
+    lite_model = genai.GenerativeModel('gemini-3.1-flash-lite')
+    pro_model = genai.GenerativeModel('gemini-3.5-flash')
 
 def get_sheets_service():
     if not gcp_creds_json:
@@ -28,9 +28,46 @@ def get_sheets_service():
     )
     return build('sheets', 'v4', credentials=creds)
 
+def get_kst_dates():
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    today = datetime.datetime.now(kst)
+    yesterday = today - datetime.timedelta(days=1)
+    tomorrow = today + datetime.timedelta(days=1)
+    
+    return {
+        "today_str_kr": today.strftime("%Y년 %m월 %d일"),
+        "yesterday_str_kr": yesterday.strftime("%Y년 %m월 %d일"),
+        "yesterday_query": yesterday.strftime("%Y-%m-%d"),
+        "tomorrow_query": tomorrow.strftime("%Y-%m-%d")
+    }
+
+# 💡 [신규 추가] 구글 시트에 이미 저장된 모델명 목록을 불러오는 함수
+def get_existing_models_from_sheet():
+    print("📂 [DB 확인] 구글 시트에서 기존 수집된 모델명 목록을 불러옵니다...")
+    service = get_sheets_service()
+    if not service: 
+        return []
+    try:
+        # 스펙_누적_데이터 시트의 C열(모델명)을 모두 가져옴
+        result = service.spreadsheets().values().get(
+            spreadsheetId=SPREADSHEET_ID, 
+            range="스펙_누적_데이터!C:C"
+        ).execute()
+        values = result.get('values', [])
+        # 공백 제거 및 소문자 변환하여 리스트로 반환 (비교의 정확도를 위해)
+        existing_models = [row[0].strip().lower() for row in values if row]
+        return existing_models
+    except Exception as e:
+        print(f"⚠️ 기존 데이터 불러오기 에러: {e}")
+        return []
+
 def detect_new_releases():
-    print("📡 [1단계: 정찰] 최근 24시간 내의 신제품 출시 기사 최대 200개를 검사합니다...")
-    url = "https://news.google.com/rss/search?q=smartphone+(launch+OR+announcement)+when:1d&hl=en-US&gl=US&ceid=US:en"
+    dates = get_kst_dates()
+    print(f"📡 [1단계: 정찰] {dates['yesterday_str_kr']} ~ {dates['today_str_kr']} 구간의 기사를 검사합니다...")
+    
+    search_query = f"smartphone (launch OR announcement) after:{dates['yesterday_query']} before:{dates['tomorrow_query']}"
+    encoded_query = urllib.parse.quote(search_query)
+    url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
     
     found_models = []
     try:
@@ -54,16 +91,27 @@ def detect_new_releases():
                 article_text = "본문 수집 불가"
 
             check_prompt = f"""
+            당신은 스마트폰 출시 진위 판별기입니다.
+            
             기사 제목: '{title}'
             초반부: '{article_text}'
-            이 기사가 스마트폰 신제품 공식 발표인가요? 단순 루머면 '아니오', 맞다면 해당 신제품의 '모델명(예: Samsung Galaxy A27)'만 적으세요.
+            
+            이 기사가 어제({dates['yesterday_str_kr']}) 또는 오늘({dates['today_str_kr']})에 "실제로 공식 출시(Launch) 또는 발표(Unveil)"된 스마트폰 신제품을 다루고 있나요?
+
+            [엄격한 판별 기준]
+            1. '예정(Expected)', '유출(Leak/Tipped)', '루머(Rumor)', '출시일 공개(Launch Date Revealed)' 등 아직 공식 출시되지 않은 소식은 무조건 '아니오'로 답하세요.
+            2. '공식 출시됨(Launched)', '발표됨(Announced/Unveiled)' 등 이미 벌어진 팩트(과거/현재 완료 시제)를 다루는 기사만 인정합니다.
+            3. 명시된 기사 내용 상 발표일이 어제({dates['yesterday_str_kr']})와 오늘({dates['today_str_kr']}) 구간에 포함되어야 인정합니다.
+            4. 글로벌 공식 출시가 아닌, 이미 출시된 폰의 '단순 특정 국가 추가 출시'라면 '아니오'로 답하세요.
+
+            위 기준에 미달하면 '아니오'라고 답하고, 진짜 공식 신제품 출시가 맞다면 해당 신제품의 '모델명(예: Samsung Galaxy A27)'만 정확히 적으세요. 다른 말은 절대 덧붙이지 마세요.
             """
             
             ai_response = lite_model.generate_content(check_prompt).text.strip()
             
             if "아니오" not in ai_response and len(ai_response) > 2:
                 model_name = ai_response
-                print(f"  ㄴ 🚨 감지 성공: {model_name}")
+                print(f"  ㄴ 🚨 실제 출시 확인됨: {model_name}")
                 found_models.append({"model_name": model_name, "primary_url": link, "intro_text": article_text})
                 
             time.sleep(5) 
@@ -76,33 +124,27 @@ def detect_new_releases():
 def deduplicate_models(models):
     print("\n🔍 [중복 제거] 수집된 모델명 통합 작업을 진행합니다...")
     unique_models = []
-    
     for item in models:
         is_duplicate = False
         for u_item in unique_models:
             prompt = f"'{item['model_name']}'와 '{u_item['model_name']}'가 같은 스마트폰 기기를 의미하나요? 맞으면 '예', 다르면 '아니오'로만 답하세요."
             ans = lite_model.generate_content(prompt).text.strip()
-            
             if "예" in ans or "Yes" in ans:
                 is_duplicate = True
                 print(f"  ㄴ 🗑️ 중복 제외됨: {item['model_name']}")
                 break
             time.sleep(5)
-            
         if not is_duplicate:
             unique_models.append(item)
             print(f"  ㄴ ✅ 고유 모델 등록: {item['model_name']}")
-            
     return unique_models
 
 def fetch_usp_and_target(model_name, intro_text):
     print(f"🔍 [{model_name}] 마케팅 맥락 및 USP 2차 검색 중...")
     
-    # 💡 하드웨어 수치가 아닌 마케팅, 셀링포인트, 타겟 관련 키워드로 타겟팅 검색
     raw_query = f'"{model_name}" (launch OR feature OR market OR target OR premium OR price OR strategy)'
     search_query = urllib.parse.quote(raw_query)
     url = f"https://news.google.com/rss/search?q={search_query}&hl=en-US&gl=US&ceid=US:en"
-    
     combined_text = intro_text + "\n"
     
     try:
@@ -120,19 +162,17 @@ def fetch_usp_and_target(model_name, intro_text):
             except: pass
             time.sleep(3) 
             
-        # 💡 모바일 상품기획자가 즉각 전략에 참고할 수 있는 정형화된 마케팅 팩트 요구
         usp_prompt = f"""
         수집된 정보: {combined_text[:4000]}
-        
         위 출시 정보를 바탕으로 '{model_name}'의 마케팅 전략 핵심 요소를 추출해 주세요.
         정확히 명시되지 않았다면 기사 문맥을 바탕으로 기획자적 관점에서 추론하여 작성하세요.
         
         출력 형식:
-        제조사: (예: 샤오미)
+        제조사:
         모델명: {model_name}
-        주요 타겟 고객층: (예: Z세대 브이로거, 아웃도어 액티비티 유저, 가성비를 중시하는 신흥시장 직장인 등 기사 맥락을 기반으로 구체적 서술)
-        핵심 셀링 포인트(USP): (이 제품이 시장에 내세우는 1순위 핵심 차별화 기능이나 세일즈 포인트 2~3가지를 명확히 작성)
-        가격대 및 포지셔닝: (예: 300달러 대의 보급형 엔트리 시장 공략, 1000달러 이상의 프리미엄 플래그십 등)
+        주요 타겟 고객층: 
+        핵심 셀링 포인트(USP): 
+        가격대 및 포지셔닝: 
         """
         result = lite_model.generate_content(usp_prompt).text
         time.sleep(5)
@@ -149,12 +189,12 @@ def generate_batch_insights(strategy_list):
         combined_strategies += f"### 제품 {i}\n{strat}\n\n"
         
     prompt = f"""
-    오늘 글로벌 시장에 출시된 스마트폰 전략 정보 목록입니다:
+    오늘 글로벌 시장에 공식 출시된 스마트폰 전략 정보 목록입니다:
     {combined_strategies}
     
     당신은 수석 모바일 상품기획자입니다. 위 신제품들의 타겟층과 USP를 종합적으로 고려했을 때, 
     우리가 차기 제품을 기획하거나 방어 전략을 짤 때 참고해야 할 '상품 기획적 시사점 및 대응 방향'을 제품별로 딱 3줄 요약하여 작성하세요.
-    말을 꾸미지 말고 철저히 비즈니스 관점에서 독창적인 아이디어나 경계해야 할 점을 짚어야 합니다.
+    말을 꾸미지 말고 철저히 비즈니스 관점에서 작성하세요.
     
     반드시 아래 형식을 지키세요:
     ### 제품 0
@@ -183,15 +223,13 @@ def save_to_cumulative_sheet(model_name, strategy_text, url, insight_text):
     service = get_sheets_service()
     if not service: return
     try:
-        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        kst = datetime.timezone(datetime.timedelta(hours=9))
+        current_date = datetime.datetime.now(kst).strftime("%Y-%m-%d")
         
-        # 1. 스펙_누적_데이터 시트 -> 제품 전략 데이터 시트로 활용 (뼈대 유지)
         service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID, range="스펙_누적_데이터!A:F",
             valueInputOption="USER_ENTERED", body={'values': [[current_date, "Google News (USP/Target)", model_name, strategy_text, url]]}
         ).execute()
-
-        # 2. 오늘의_신제품 시트 -> 상품기획 시사점 대시보드로 활용
         service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID, range="오늘의_신제품!A:E",
             valueInputOption="USER_ENTERED", body={'values': [[current_date, model_name, "AI 기획 전략 분석", url, insight_text]]}
@@ -200,27 +238,19 @@ def save_to_cumulative_sheet(model_name, strategy_text, url, insight_text):
         print(f"⚠️ 시트 저장 에러: {e}")
 
 if __name__ == "__main__":
-    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🚀 상품기획자 전용 USP & 타겟 세그먼트 분석 시스템 가동")
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    print(f"[{datetime.datetime.now(kst).strftime('%Y-%m-%d %H:%M:%S')}] 🚀 명시적 날짜 & 구글 시트 DB 중복 필터링 시스템 가동")
     
+    # 1. 기존에 저장된 데이터 목록 가져오기
+    existing_models_in_db = get_existing_models_from_sheet()
+    
+    # 2. 기사 정찰 및 중복 제거
     detected_models = detect_new_releases()
     unique_models = deduplicate_models(detected_models)
     
+    # 3. 💡 [핵심] 시트(DB)에 이미 있는 모델명 걸러내기 (API 호출 및 저장 방지)
+    final_target_models = []
     if unique_models:
-        print(f"\n총 {len(unique_models)}개의 고유 신제품 마케팅 전략 분석을 시작합니다.")
-        
-        all_strategies = []
+        print("\n🛡️ [사전 검증] 구글 시트에 이미 기록된 제품인지 대조합니다...")
         for device in unique_models:
-            strategy_info = fetch_usp_and_target(device['model_name'], device['intro_text'])
-            all_strategies.append(strategy_info)
-            print(f"  ㄴ {device['model_name']} USP 및 타겟 데이터 확보")
-            
-        insights = generate_batch_insights(all_strategies)
-        
-        print("\n[최종 대시보드 저장 시작]")
-        for idx, device in enumerate(unique_models):
-            save_to_cumulative_sheet(device['model_name'], all_strategies[idx], device['primary_url'], insights[idx])
-            print(f"✔️ {device['model_name']} 기획 전략 시트 저장 완료")
-            
-        print("\n✅ 모든 상품기획 파이프라인 처리가 성공적으로 완료되었습니다!")
-    else:
-        print("✅ 시스템 정상 작동: 지정된 기간 내에 출시된 신제품이 없습니다.")
+            # 대소문자 무
