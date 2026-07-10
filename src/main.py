@@ -101,6 +101,7 @@ def detect_new_releases():
             이 기사가 "전 세계 최초로 공식 발표(First Global Unveil)" 또는 "최초 출시"된 스마트폰 신제품을 다루고 있나요?
             <엄격한 판별 기준>
             1. 과거에 이미 출시된 폰이 오늘 인도, 유럽, 대만 등 특정 국가에 뒤늦게 런칭(Launched in India today 등)하는 기사는 무조건 '아니오'로 답하세요. (예: 이미 몇 달 전 공개된 폰이 오늘 특정 국가에 출시되었다는 뉘앙스면 가짜입니다)
+            2. 예정(Expected), 유출(Leak), 루머(Rumor) 등 아직 발표되지 않은 미래 시제 소식은 '아니오'로 답하세요.
             """
             
             ai_response = lite_model.generate_content(check_prompt).text.strip()
