@@ -39,7 +39,7 @@ def get_kst_dates():
     return {
         "today_str_kr": today.strftime("%Y년 %m월 %d일"),
         "yesterday_str_kr": yesterday.strftime("%Y년 %m월 %d일"),
-        "yesterday_query": yesterday.strftime("%Y-%m-%d"), # 💡 after:2026-07-07 로 다시 고정
+        "yesterday_query": day_before_yesterday.strftime("%Y-%m-%d"),
         "tomorrow_query": tomorrow.strftime("%Y-%m-%d")    # 💡 before:2026-07-09 로 다시 고정
     }
 
