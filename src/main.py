@@ -91,7 +91,6 @@ def detect_new_releases():
             except Exception:
                 article_text = "본문 수집 불가"
 
-            # 💡 [핵심] 빡빡했던 날짜 조건을 없애고, '출시 완료' 뉘앙스에 집중하도록 AI 프롬프트 수정
             check_prompt = f"""
             당신은 스마트폰 출시 진위 판별기입니다.
             
