@@ -169,6 +169,7 @@ def fetch_usp_and_target(model_name, intro_text):
         출력 형식:
         제조사:
         모델명: {model_name}
+        출시일:
         주요 타겟 고객층: 
         핵심 셀링 포인트(USP): 
         가격대 및 포지셔닝: 
