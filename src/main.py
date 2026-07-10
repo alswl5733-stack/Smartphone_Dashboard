@@ -3,7 +3,7 @@ import json
 import datetime
 import time
 import requests
-import urllib.parse  # 💡 추가된 필수 라이브러리
+import urllib.parse
 from bs4 import BeautifulSoup
 import google.generativeai as genai
 from google.oauth2 import service_account
@@ -16,8 +16,8 @@ gcp_creds_json = os.environ.get("GCP_CREDENTIALS")
 
 if gemini_key:
     genai.configure(api_key=gemini_key)
-    lite_model = genai.GenerativeModel('gemini-3.1-flash-lite')
-    pro_model = genai.GenerativeModel('gemini-3.5-flash')
+    lite_model = genai.GenerativeModel('gemini-3.1-flash-lite') # 맥락 추출용
+    pro_model = genai.GenerativeModel('gemini-3.5-flash')       # 전략 인사이트용
 
 def get_sheets_service():
     if not gcp_creds_json:
@@ -29,8 +29,7 @@ def get_sheets_service():
     return build('sheets', 'v4', credentials=creds)
 
 def detect_new_releases():
-    print("📡 [1단계: 정찰] 최근 24시간 내의 기사 최대 200개를 검사합니다...")
-    
+    print("📡 [1단계: 정찰] 최근 24시간 내의 신제품 출시 기사 최대 200개를 검사합니다...")
     url = "https://news.google.com/rss/search?q=smartphone+(launch+OR+announcement)+when:1d&hl=en-US&gl=US&ceid=US:en"
     
     found_models = []
@@ -81,12 +80,12 @@ def deduplicate_models(models):
     for item in models:
         is_duplicate = False
         for u_item in unique_models:
-            prompt = f"'{item['model_name']}'와 '{u_item['model_name']}'가 같은 스마트폰 기기를 의미하나요? 표기가 다르거나 축약형(예: Nothing Phone 4b 와 Phone 4b)인 경우도 포함됩니다. 맞으면 '예', 다르면 '아니오'로만 답하세요."
+            prompt = f"'{item['model_name']}'와 '{u_item['model_name']}'가 같은 스마트폰 기기를 의미하나요? 맞으면 '예', 다르면 '아니오'로만 답하세요."
             ans = lite_model.generate_content(prompt).text.strip()
             
             if "예" in ans or "Yes" in ans:
                 is_duplicate = True
-                print(f"  ㄴ 🗑️ 중복 제외됨: {item['model_name']} (기존 '{u_item['model_name']}'와 동일 기기)")
+                print(f"  ㄴ 🗑️ 중복 제외됨: {item['model_name']}")
                 break
             time.sleep(5)
             
@@ -96,88 +95,72 @@ def deduplicate_models(models):
             
     return unique_models
 
-def fetch_detailed_specs(model_name, intro_text):
-    print(f"🔍 [{model_name}] 세부 스펙 2차 검색 중...")
+def fetch_usp_and_target(model_name, intro_text):
+    print(f"🔍 [{model_name}] 마케팅 맥락 및 USP 2차 검색 중...")
+    
+    # 💡 하드웨어 수치가 아닌 마케팅, 셀링포인트, 타겟 관련 키워드로 타겟팅 검색
+    raw_query = f'"{model_name}" (launch OR feature OR market OR target OR premium OR price OR strategy)'
+    search_query = urllib.parse.quote(raw_query)
+    url = f"https://news.google.com/rss/search?q={search_query}&hl=en-US&gl=US&ceid=US:en"
+    
+    combined_text = intro_text + "\n"
     
     try:
-        # 💡 에러 방지를 위해 변환 코드를 try 블록 안으로 이동
-        raw_query = f'"{model_name}" (specs OR specifications OR processor OR display OR battery OR camera OR "release date" OR "launch date")'
-        search_query = urllib.parse.quote(raw_query)
-        url = f"https://news.google.com/rss/search?q={search_query}&hl=en-US&gl=US&ceid=US:en"
-        
-        combined_text = intro_text + "\n"
-        
         response = requests.get(url, timeout=10)
         soup = BeautifulSoup(response.content, 'xml')
         items = soup.find_all('item')
         
-        for item in items[:3]:
+        for item in items[:2]:
             try:
                 res = requests.get(item.link.text, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
                 art_soup = BeautifulSoup(res.text, 'html.parser')
-                
-                elements = art_soup.find_all(['p', 'li'])
+                elements = art_soup.find_all(['p', 'h1', 'h2'])
                 extracted_texts = [el.text.strip() for el in elements if len(el.text.strip()) > 10]
-                combined_text += "\n".join(extracted_texts[:25]) + "\n"
-            except: 
-                pass
+                combined_text += "\n".join(extracted_texts[:20]) + "\n"
+            except: pass
             time.sleep(3) 
             
-        today_date = datetime.datetime.now().strftime("%Y년 %m월 %d일")
-            
-        spec_prompt = f"""
-        현재 날짜는 {today_date}입니다.
+        # 💡 모바일 상품기획자가 즉각 전략에 참고할 수 있는 정형화된 마케팅 팩트 요구
+        usp_prompt = f"""
         수집된 정보: {combined_text[:4000]}
         
-        위 정보를 바탕으로 '{model_name}'의 세부 스펙을 추출해 주세요.
-        
-        [출시 연월 추출 주의사항]
-        - 기사 본문에 "today", "this week" 등으로 표현된 경우, 현재 날짜를 기준으로 계산하세요.
-        - 정보가 전혀 없다면 절대 지어내지 말고 "기사 내 확인 불가"로 적으세요.
+        위 출시 정보를 바탕으로 '{model_name}'의 마케팅 전략 핵심 요소를 추출해 주세요.
+        정확히 명시되지 않았다면 기사 문맥을 바탕으로 기획자적 관점에서 추론하여 작성하세요.
         
         출력 형식:
+        제조사: (예: 샤오미)
         모델명: {model_name}
-        출시 연월:
-        AP(칩셋):
-        디스플레이:
-        배터리:
-        카메라:
+        주요 타겟 고객층: (예: Z세대 브이로거, 아웃도어 액티비티 유저, 가성비를 중시하는 신흥시장 직장인 등 기사 맥락을 기반으로 구체적 서술)
+        핵심 셀링 포인트(USP): (이 제품이 시장에 내세우는 1순위 핵심 차별화 기능이나 세일즈 포인트 2~3가지를 명확히 작성)
+        가격대 및 포지셔닝: (예: 300달러 대의 보급형 엔트리 시장 공략, 1000달러 이상의 프리미엄 플래그십 등)
         """
-        result = lite_model.generate_content(spec_prompt).text
+        result = lite_model.generate_content(usp_prompt).text
         time.sleep(5)
         return result
     except Exception as e:
-        return f"스펙 수집 실패: {e}"
+        return f"전략 분석 실패: {e}"
 
-def generate_batch_insights(specs_list):
-    print("🧠 [일괄 분석] Pro 모델 1회 호출로 모든 신제품 인사이트 도출 중...")
-    if not specs_list: return []
+def generate_batch_insights(strategy_list):
+    print("🧠 [일괄 전략 분석] Pro 모델 가동하여 기획 시사점 도출 중...")
+    if not strategy_list: return []
     
-    service = get_sheets_service()
-    benchmarks = "데이터 없음"
-    if service:
-        try:
-            result = service.spreadsheets().values().get(spreadsheetId=SPREADSHEET_ID, range="골드_스탠다드!A1:AQ").execute()
-            benchmarks = json.dumps(result.get('values', [])[:3], ensure_ascii=False)
-        except: pass
-
-    combined_specs = ""
-    for i, spec in enumerate(specs_list):
-        combined_specs += f"### 모델 {i}\n{spec}\n\n"
+    combined_strategies = ""
+    for i, strat in enumerate(strategy_list):
+        combined_strategies += f"### 제품 {i}\n{strat}\n\n"
         
     prompt = f"""
-    신제품 스펙 목록:
-    {combined_specs}
+    오늘 글로벌 시장에 출시된 스마트폰 전략 정보 목록입니다:
+    {combined_strategies}
     
-    벤치마크 기준: {benchmarks}
+    당신은 수석 모바일 상품기획자입니다. 위 신제품들의 타겟층과 USP를 종합적으로 고려했을 때, 
+    우리가 차기 제품을 기획하거나 방어 전략을 짤 때 참고해야 할 '상품 기획적 시사점 및 대응 방향'을 제품별로 딱 3줄 요약하여 작성하세요.
+    말을 꾸미지 말고 철저히 비즈니스 관점에서 독창적인 아이디어나 경계해야 할 점을 짚어야 합니다.
     
-    위 신제품 각각에 대해 벤치마크 대비 수치적 우위와 시장 타겟팅 관점을 3줄 이내로 분석하세요.
-    반드시 아래와 같은 형식으로 각 모델의 결과를 '### 모델 번호'로 구분하여 출력하세요.
-    
-    ### 모델 0
-    인사이트 내용...
-    ### 모델 1
-    인사이트 내용...
+    반드시 아래 형식을 지키세요:
+    ### 제품 0
+    시사점 내용...
+    ### 제품 1
+    시사점 내용...
     """
     
     try:
@@ -185,54 +168,59 @@ def generate_batch_insights(specs_list):
         time.sleep(5)
         
         insights = []
-        for i in range(len(specs_list)):
-            part = response.split(f"### 모델 {i}")
+        for i in range(len(strategy_list)):
+            part = response.split(f"### 제품 {i}")
             if len(part) > 1:
-                content = part[1].split("### 모델")[0].strip()
+                content = part[1].split("### 제품")[0].strip()
                 insights.append(content)
             else:
-                insights.append("분석 내용 분리 실패")
+                insights.append("전략 시사점 도출 실패")
         return insights
     except Exception as e:
-        return [f"⚠️ 인사이트 에러: {e}"] * len(specs_list)
+        return [f"⚠️ 전략 분석 에러: {e}"] * len(strategy_list)
 
-def save_to_cumulative_sheet(model_name, specs, url, insight_text):
+def save_to_cumulative_sheet(model_name, strategy_text, url, insight_text):
     service = get_sheets_service()
     if not service: return
     try:
         current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        
+        # 1. 스펙_누적_데이터 시트 -> 제품 전략 데이터 시트로 활용 (뼈대 유지)
         service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID, range="스펙_누적_데이터!A:F",
-            valueInputOption="USER_ENTERED", body={'values': [[current_date, "Google News (Batch/Live)", model_name, specs, url]]}
+            valueInputOption="USER_ENTERED", body={'values': [[current_date, "Google News (USP/Target)", model_name, strategy_text, url]]}
         ).execute()
+
+        # 2. 오늘의_신제품 시트 -> 상품기획 시사점 대시보드로 활용
         service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID, range="오늘의_신제품!A:E",
-            valueInputOption="USER_ENTERED", body={'values': [[current_date, model_name, "AI 감지 (Batch/Live)", url, insight_text]]}
+            valueInputOption="USER_ENTERED", body={'values': [[current_date, model_name, "AI 기획 전략 분석", url, insight_text]]}
         ).execute()
-    except Exception as e: print(f"⚠️ 저장 에러: {e}")
+    except Exception as e: 
+        print(f"⚠️ 시트 저장 에러: {e}")
 
 if __name__ == "__main__":
-    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 시스템 실전 가동 (최근 24시간 스캔 & 날짜 정확도 강화)")
+    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🚀 상품기획자 전용 USP & 타겟 세그먼트 분석 시스템 가동")
     
     detected_models = detect_new_releases()
     unique_models = deduplicate_models(detected_models)
     
     if unique_models:
-        print(f"\n총 {len(unique_models)}개의 고유 신제품 세부 스펙 조사를 시작합니다.")
+        print(f"\n총 {len(unique_models)}개의 고유 신제품 마케팅 전략 분석을 시작합니다.")
         
-        all_specs = []
+        all_strategies = []
         for device in unique_models:
-            specs = fetch_detailed_specs(device['model_name'], device['intro_text'])
-            all_specs.append(specs)
-            print(f"  ㄴ {device['model_name']} 스펙 확보")
+            strategy_info = fetch_usp_and_target(device['model_name'], device['intro_text'])
+            all_strategies.append(strategy_info)
+            print(f"  ㄴ {device['model_name']} USP 및 타겟 데이터 확보")
             
-        insights = generate_batch_insights(all_specs)
+        insights = generate_batch_insights(all_strategies)
         
-        print("\n[최종 데이터 저장 시작]")
+        print("\n[최종 대시보드 저장 시작]")
         for idx, device in enumerate(unique_models):
-            save_to_cumulative_sheet(device['model_name'], all_specs[idx], device['primary_url'], insights[idx])
-            print(f"✔️ {device['model_name']} 시트 저장 완료")
+            save_to_cumulative_sheet(device['model_name'], all_strategies[idx], device['primary_url'], insights[idx])
+            print(f"✔️ {device['model_name']} 기획 전략 시트 저장 완료")
             
-        print("\n✅ 모든 처리 완료")
+        print("\n✅ 모든 상품기획 파이프라인 처리가 성공적으로 완료되었습니다!")
     else:
         print("✅ 시스템 정상 작동: 지정된 기간 내에 출시된 신제품이 없습니다.")
