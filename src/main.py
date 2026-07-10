@@ -91,6 +91,7 @@ def detect_new_releases():
             except Exception:
                 article_text = "본문 수집 불가"
 
+           # 💡 [핵심] '특정 국가 지각 출시(재탕)'를 걸러내고 '글로벌 최초 공개'만 잡는 똑똑해진 프롬프트 유지
             check_prompt = f"""
             당신은 수석 모바일 상품기획자의 스마트폰 신제품 감별사입니다.
             
@@ -99,12 +100,6 @@ def detect_new_releases():
             
             이 기사가 "전 세계 최초로 공식 발표(First Global Unveil)" 또는 "최초 출시"된 스마트폰 신제품을 다루고 있나요?
 
-            [유연하고 정확한 판별 기준]
-            1. '예정(Expected)', '출시일 공개(Launch Date Revealed)' 등 미래 시제이거나 아직 출시되지 않은 소식은 '아니오'로 답하세요.
-            2. 하지만 기사 제목이나 본문에 'Launched', 'Unveiled', 'Official', 'Today' 등의 단어가 포함되어 '이미 출시가 완료된 팩트'를 다루고 있다면 무조건 인정하세요. (정확한 날짜 텍스트가 없어도 인정)
-            3. 특정 국가에만 한정된 추가 출시 기사라면 '아니오'로 답하세요.
-
-            위 기준에 미달하면 '아니오'라고 답하고, 진짜 공식 신제품 출시가 맞다면 해당 신제품의 '모델명(예: Nothing Phone 4b)'만 정확히 적으세요. 다른 말은 덧붙이지 마세요.
             """
             
             ai_response = lite_model.generate_content(check_prompt).text.strip()
