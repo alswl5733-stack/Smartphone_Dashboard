@@ -30,7 +30,10 @@ def get_sheets_service():
 
 def get_kst_dates():
     kst = datetime.timezone(datetime.timedelta(hours=9))
-    today = datetime.datetime.now(kst)
+    
+    # 💡 [테스트용 타임머신] 시스템의 오늘 날짜를 2026년 7월 8일로 강제 고정합니다.
+    today = datetime.datetime(2026, 7, 8, 12, 0, 0, tzinfo=kst)
+    
     yesterday = today - datetime.timedelta(days=1)
     tomorrow = today + datetime.timedelta(days=1)
     
@@ -220,8 +223,8 @@ def save_to_cumulative_sheet(model_name, strategy_text, url, insight_text):
     service = get_sheets_service()
     if not service: return
     try:
-        kst = datetime.timezone(datetime.timedelta(hours=9))
-        current_date = datetime.datetime.now(kst).strftime("%Y-%m-%d")
+        # 💡 [테스트용 타임머신] 구글 시트에 기록되는 날짜도 7월 8일로 속입니다.
+        current_date = "2026-07-08"
         
         service.spreadsheets().values().append(
             spreadsheetId=SPREADSHEET_ID, range="스펙_누적_데이터!A:F",
@@ -235,8 +238,8 @@ def save_to_cumulative_sheet(model_name, strategy_text, url, insight_text):
         print(f"⚠️ 시트 저장 에러: {e}")
 
 if __name__ == "__main__":
-    kst = datetime.timezone(datetime.timedelta(hours=9))
-    print(f"[{datetime.datetime.now(kst).strftime('%Y-%m-%d %H:%M:%S')}] 🚀 명시적 날짜 & 구글 시트 DB 중복 필터링 시스템 가동")
+    # 💡 [테스트용 타임머신] 시스템 시작 메시지에도 7월 8일을 출력합니다.
+    print(f"[2026-07-08 12:00:00] 🚀 명시적 날짜 & 구글 시트 DB 중복 필터링 시스템 가동 (타임머신 테스트 모드: 7월 8일)")
     
     existing_models_in_db = get_existing_models_from_sheet()
     
