@@ -97,7 +97,7 @@ def detect_new_releases():
             기사 제목: '{title}'
             초반부: '{article_text}'
             
-            이 기사가 "실제로 공식 출시(Launch) 또는 발표(Unveil)"된 스마트폰 신제품을 다루고 있나요?
+            이 기사가 "전 세계 최초로 공식 발표(First Global Unveil)" 또는 "최초 출시"된 스마트폰 신제품을 다루고 있나요?
 
             [유연하고 정확한 판별 기준]
             1. '예정(Expected)', '출시일 공개(Launch Date Revealed)' 등 미래 시제이거나 아직 출시되지 않은 소식은 '아니오'로 답하세요.
