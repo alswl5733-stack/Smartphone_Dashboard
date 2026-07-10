@@ -32,7 +32,7 @@ def get_kst_dates():
     kst = datetime.timezone(datetime.timedelta(hours=9))
     
     # 💡 [테스트용 타임머신] 시스템의 오늘 날짜를 2026년 7월 8일로 강제 고정
-    today = datetime.datetime(2026, 7, 1, 12, 0, 0, tzinfo=kst)
+    today = datetime.datetime(2026, 3, 11, 12, 0, 0, tzinfo=kst)
     yesterday = today - datetime.timedelta(days=1)
     tomorrow = today + datetime.timedelta(days=1)
 
