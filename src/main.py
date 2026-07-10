@@ -35,7 +35,7 @@ def get_kst_dates():
     today = datetime.datetime(2026, 7, 8, 12, 0, 0, tzinfo=kst)
     yesterday = today - datetime.timedelta(days=1)
     tomorrow = today + datetime.timedelta(days=1)
-    
+    day_before_yesterday = today - datetime.timedelta(days=2)
     return {
         "today_str_kr": today.strftime("%Y년 %m월 %d일"),
         "yesterday_str_kr": yesterday.strftime("%Y년 %m월 %d일"),
