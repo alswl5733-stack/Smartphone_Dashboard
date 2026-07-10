@@ -41,20 +41,17 @@ def get_kst_dates():
         "tomorrow_query": tomorrow.strftime("%Y-%m-%d")
     }
 
-# 💡 [신규 추가] 구글 시트에 이미 저장된 모델명 목록을 불러오는 함수
 def get_existing_models_from_sheet():
     print("📂 [DB 확인] 구글 시트에서 기존 수집된 모델명 목록을 불러옵니다...")
     service = get_sheets_service()
     if not service: 
         return []
     try:
-        # 스펙_누적_데이터 시트의 C열(모델명)을 모두 가져옴
         result = service.spreadsheets().values().get(
             spreadsheetId=SPREADSHEET_ID, 
             range="스펙_누적_데이터!C:C"
         ).execute()
         values = result.get('values', [])
-        # 공백 제거 및 소문자 변환하여 리스트로 반환 (비교의 정확도를 위해)
         existing_models = [row[0].strip().lower() for row in values if row]
         return existing_models
     except Exception as e:
@@ -241,16 +238,43 @@ if __name__ == "__main__":
     kst = datetime.timezone(datetime.timedelta(hours=9))
     print(f"[{datetime.datetime.now(kst).strftime('%Y-%m-%d %H:%M:%S')}] 🚀 명시적 날짜 & 구글 시트 DB 중복 필터링 시스템 가동")
     
-    # 1. 기존에 저장된 데이터 목록 가져오기
     existing_models_in_db = get_existing_models_from_sheet()
     
-    # 2. 기사 정찰 및 중복 제거
     detected_models = detect_new_releases()
     unique_models = deduplicate_models(detected_models)
     
-    # 3. 💡 [핵심] 시트(DB)에 이미 있는 모델명 걸러내기 (API 호출 및 저장 방지)
     final_target_models = []
     if unique_models:
         print("\n🛡️ [사전 검증] 구글 시트에 이미 기록된 제품인지 대조합니다...")
         for device in unique_models:
-            # 대소문자 무
+            clean_name = device['model_name'].strip().lower()
+            
+            is_already_saved = False
+            for db_model in existing_models_in_db:
+                if clean_name in db_model or db_model in clean_name:
+                    is_already_saved = True
+                    break
+            
+            if is_already_saved:
+                print(f"  ㄴ ⏩ 패스: '{device['model_name']}' (이미 시트에 저장된 제품입니다)")
+            else:
+                print(f"  ㄴ 🆕 신규: '{device['model_name']}' (분석 대상에 추가됨)")
+                final_target_models.append(device)
+    
+    if final_target_models:
+        print(f"\n총 {len(final_target_models)}개의 완벽한 신제품 마케팅 전략 분석을 시작합니다.")
+        all_strategies = []
+        for device in final_target_models:
+            strategy_info = fetch_usp_and_target(device['model_name'], device['intro_text'])
+            all_strategies.append(strategy_info)
+            print(f"  ㄴ {device['model_name']} USP 및 타겟 데이터 확보")
+            
+        insights = generate_batch_insights(all_strategies)
+        
+        print("\n[최종 대시보드 저장 시작]")
+        for idx, device in enumerate(final_target_models):
+            save_to_cumulative_sheet(device['model_name'], all_strategies[idx], device['primary_url'], insights[idx])
+            print(f"✔️ {device['model_name']} 기획 전략 시트 저장 완료")
+        print("\n✅ 모든 상품기획 파이프라인 처리가 성공적으로 완료되었습니다!")
+    else:
+        print("\n✅ 시스템 정상 작동: 오늘(최근 2일 이내) 새롭게 추가할 공식 신제품이 없습니다.")
