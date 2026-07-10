@@ -104,7 +104,6 @@ def detect_new_releases():
             2. 예정(Expected), 유출(Leak), 루머(Rumor) 등 아직 발표되지 않은 미래 시제 소식은 '아니오'로 답하세요.
             3. 기사 제목이나 본문에 Launched, Unveiled, Official, Introduced 등이 포함되며, 그것이 과거 모델의 재탕이 아닌 완전히 새로운 모델의 최초 등장일 때만 인정하세요.
             """
-            
             ai_response = lite_model.generate_content(check_prompt).text.strip()
             
             if "아니오" not in ai_response and len(ai_response) > 2:
