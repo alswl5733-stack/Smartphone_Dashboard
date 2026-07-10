@@ -31,17 +31,16 @@ def get_sheets_service():
 def get_kst_dates():
     kst = datetime.timezone(datetime.timedelta(hours=9))
     
-    # 💡 [테스트용 타임머신] 시스템의 오늘 날짜를 2026년 7월 8일로 강제 고정합니다.
+    # 💡 [테스트용 타임머신] 시스템의 오늘 날짜를 2026년 7월 8일로 강제 고정
     today = datetime.datetime(2026, 7, 8, 12, 0, 0, tzinfo=kst)
-    
     yesterday = today - datetime.timedelta(days=1)
     tomorrow = today + datetime.timedelta(days=1)
     
     return {
         "today_str_kr": today.strftime("%Y년 %m월 %d일"),
         "yesterday_str_kr": yesterday.strftime("%Y년 %m월 %d일"),
-        "yesterday_query": yesterday.strftime("%Y-%m-%d"),
-        "tomorrow_query": tomorrow.strftime("%Y-%m-%d")
+        "yesterday_query": yesterday.strftime("%Y-%m-%d"), # 💡 after:2026-07-07 로 다시 고정
+        "tomorrow_query": tomorrow.strftime("%Y-%m-%d")    # 💡 before:2026-07-09 로 다시 고정
     }
 
 def get_existing_models_from_sheet():
@@ -65,6 +64,7 @@ def detect_new_releases():
     dates = get_kst_dates()
     print(f"📡 [1단계: 정찰] {dates['yesterday_str_kr']} ~ {dates['today_str_kr']} 구간의 기사를 검사합니다...")
     
+    # 💡 검색망을 그저께로 넓히지 않고 기존(어제~내일) 방식 유지
     search_query = f"smartphone (launch OR announcement) after:{dates['yesterday_query']} before:{dates['tomorrow_query']}"
     encoded_query = urllib.parse.quote(search_query)
     url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
@@ -80,7 +80,8 @@ def detect_new_releases():
             link = item.link.text
             print(f"[{i+1}/{min(200, len(items))}] 검사 중: {title}")
             
-            if any(w in title.lower() for w in ['rumor', 'leak', 'concept', 'reportedly']):
+            # 루머성 짙은 단어 1차 필터링
+            if any(w in title.lower() for w in ['rumor', 'concept', 'reportedly']):
                 continue
                 
             try:
@@ -90,21 +91,21 @@ def detect_new_releases():
             except Exception:
                 article_text = "본문 수집 불가"
 
+            # 💡 [핵심] 빡빡했던 날짜 조건을 없애고, '출시 완료' 뉘앙스에 집중하도록 AI 프롬프트 수정
             check_prompt = f"""
             당신은 스마트폰 출시 진위 판별기입니다.
             
             기사 제목: '{title}'
             초반부: '{article_text}'
             
-            이 기사가 어제({dates['yesterday_str_kr']}) 또는 오늘({dates['today_str_kr']})에 "실제로 공식 출시(Launch) 또는 발표(Unveil)"된 스마트폰 신제품을 다루고 있나요?
+            이 기사가 "실제로 공식 출시(Launch) 또는 발표(Unveil)"된 스마트폰 신제품을 다루고 있나요?
 
-            [엄격한 판별 기준]
-            1. '예정(Expected)', '유출(Leak/Tipped)', '루머(Rumor)', '출시일 공개(Launch Date Revealed)' 등 아직 공식 출시되지 않은 소식은 무조건 '아니오'로 답하세요.
-            2. '공식 출시됨(Launched)', '발표됨(Announced/Unveiled)' 등 이미 벌어진 팩트(과거/현재 완료 시제)를 다루는 기사만 인정합니다.
-            3. 명시된 기사 내용 상 발표일이 어제({dates['yesterday_str_kr']})와 오늘({dates['today_str_kr']}) 구간에 포함되어야 인정합니다.
-            4. 글로벌 공식 출시가 아닌, 이미 출시된 폰의 '단순 특정 국가 추가 출시'라면 '아니오'로 답하세요.
+            [유연하고 정확한 판별 기준]
+            1. '예정(Expected)', '출시일 공개(Launch Date Revealed)' 등 미래 시제이거나 아직 출시되지 않은 소식은 '아니오'로 답하세요.
+            2. 하지만 기사 제목이나 본문에 'Launched', 'Unveiled', 'Official', 'Today' 등의 단어가 포함되어 '이미 출시가 완료된 팩트'를 다루고 있다면 무조건 인정하세요. (정확한 날짜 텍스트가 없어도 인정)
+            3. 특정 국가에만 한정된 추가 출시 기사라면 '아니오'로 답하세요.
 
-            위 기준에 미달하면 '아니오'라고 답하고, 진짜 공식 신제품 출시가 맞다면 해당 신제품의 '모델명(예: Samsung Galaxy A27)'만 정확히 적으세요. 다른 말은 절대 덧붙이지 마세요.
+            위 기준에 미달하면 '아니오'라고 답하고, 진짜 공식 신제품 출시가 맞다면 해당 신제품의 '모델명(예: Nothing Phone 4b)'만 정확히 적으세요. 다른 말은 덧붙이지 마세요.
             """
             
             ai_response = lite_model.generate_content(check_prompt).text.strip()
@@ -115,7 +116,7 @@ def detect_new_releases():
                 found_models.append({"model_name": model_name, "primary_url": link, "intro_text": article_text})
                 
             time.sleep(5) 
-            
+
         return found_models
     except Exception as e:
         print(f"⚠️ 정찰 에러 발생: {e}")
