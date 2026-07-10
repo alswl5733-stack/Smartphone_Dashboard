@@ -92,7 +92,7 @@ def detect_new_releases():
                 article_text = "본문 수집 불가"
 
             check_prompt = f"""
-            당신은 스마트폰 출시 진위 판별기입니다.
+            당신은 수석 모바일 상품기획자의 스마트폰 신제품 감별사입니다.
             
             기사 제목: '{title}'
             초반부: '{article_text}'
