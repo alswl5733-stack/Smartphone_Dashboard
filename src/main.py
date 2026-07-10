@@ -103,6 +103,7 @@ def detect_new_releases():
             1. 과거에 이미 출시된 폰이 오늘 인도, 유럽, 대만 등 특정 국가에 뒤늦게 런칭(Launched in India today 등)하는 기사는 무조건 '아니오'로 답하세요. (예: 이미 몇 달 전 공개된 폰이 오늘 특정 국가에 출시되었다는 뉘앙스면 가짜입니다)
             2. 예정(Expected), 유출(Leak), 루머(Rumor) 등 아직 발표되지 않은 미래 시제 소식은 '아니오'로 답하세요.
             3. 기사 제목이나 본문에 Launched, Unveiled, Official, Introduced 등이 포함되며, 그것이 과거 모델의 재탕이 아닌 완전히 새로운 모델의 최초 등장일 때만 인정하세요.
+            위 기준에 미달하면 아니오라고 답하고, 신제품이 맞다면 모델명만 정확히 적으세요. 다른 말은 절대 덧붙이지 마세요.
             """
             ai_response = lite_model.generate_content(check_prompt).text.strip()
             
