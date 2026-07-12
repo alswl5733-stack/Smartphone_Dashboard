@@ -46,7 +46,6 @@
             margin: 0;
         }
 
-        /* 탭 메뉴 스타일 */
         .tab-container {
             display: flex;
             justify-content: center;
@@ -67,19 +66,15 @@
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
         }
 
-        .tab-btn:hover {
-            background-color: #cbd5e1;
-        }
-
+        .tab-btn:hover { background-color: #cbd5e1; }
         .tab-btn.active {
             background-color: var(--accent);
             color: white;
             box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
         }
 
-        /* 필터 버튼 스타일 */
         .filter-container {
-            display: none; /* 기본은 숨김 (히스토리 탭에서만 표시) */
+            display: none; 
             justify-content: center;
             flex-wrap: wrap;
             margin-bottom: 30px;
@@ -167,11 +162,7 @@
             justify-content: space-between;
         }
 
-        .device-title a {
-            color: var(--accent);
-            font-size: 1rem;
-            text-decoration: none;
-        }
+        .device-title a { color: var(--accent); font-size: 1rem; text-decoration: none; }
 
         .insight-box {
             background-color: var(--insight-bg);
@@ -181,41 +172,16 @@
             margin-bottom: 20px;
         }
 
-        .insight-box strong {
-            display: block;
-            color: var(--accent);
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-        }
+        .insight-box strong { display: block; color: var(--accent); font-size: 0.9rem; margin-bottom: 5px; }
+        .insight-box p { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--primary); }
 
-        .insight-box p {
-            margin: 0;
-            font-size: 1.05rem;
-            font-weight: 600;
-            color: var(--primary);
-        }
-
-        .detail-section {
-            margin-bottom: 12px;
-            font-size: 0.95rem;
-        }
-
+        .detail-section { margin-bottom: 12px; font-size: 0.95rem; }
         .detail-section strong {
-            display: block;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 2px;
-            color: var(--text-muted);
+            display: block; font-size: 0.85rem; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 2px; color: var(--text-muted);
         }
 
-        .loading {
-            text-align: center;
-            grid-column: 1 / -1;
-            font-size: 1.2rem;
-            color: var(--text-muted);
-            padding: 50px;
-        }
+        .loading { text-align: center; grid-column: 1 / -1; font-size: 1.2rem; color: var(--text-muted); padding: 50px; }
     </style>
 </head>
 <body>
@@ -278,20 +244,15 @@
             }
         }
 
-        // 탭 전환 로직
         window.switchTab = function(tabName) {
             currentTab = tabName;
-            
-            // 탭 UI 업데이트
             document.getElementById('tab-latest').classList.remove('active');
             document.getElementById('tab-history').classList.remove('active');
             document.getElementById('tab-' + tabName).classList.add('active');
 
-            // 필터 UI 토글 (히스토리에서만 보임)
             const filterMenu = document.getElementById('filter-menu');
             if (tabName === 'history') {
                 filterMenu.style.display = 'flex';
-                // 히스토리 탭 진입 시 기본적으로 전체 보기로 초기화
                 applyFilter('all'); 
             } else {
                 filterMenu.style.display = 'none';
@@ -299,19 +260,14 @@
             }
         };
 
-        // 필터 적용 로직
         window.applyFilter = function(tierId) {
             currentFilter = tierId;
-            
-            // 필터 UI 업데이트
             const btns = document.querySelectorAll('.filter-btn');
             btns.forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
-
             renderCards();
         };
 
-        // 카드 그리기 로직
         function renderCards() {
             const dashboard = document.getElementById('dashboard');
             dashboard.innerHTML = '';
@@ -319,17 +275,14 @@
             let displayList = [];
 
             if (currentTab === 'latest') {
-                // [최신 탭]: 가장 최근 날짜 데이터만 필터링 후, 플래그십 우선 정렬
                 displayList = allProducts.filter(p => p.date === latestDate);
                 displayList.sort((a, b) => a.tier.rank - b.tier.rank);
             } else {
-                // [히스토리 탭]: 선택된 필터에 맞게 분류 후, 최신 날짜순 정렬
                 if (currentFilter === 'all') {
                     displayList = [...allProducts];
                 } else {
                     displayList = allProducts.filter(p => p.tier.id === currentFilter);
                 }
-                // 날짜 내림차순 정렬 (최신순)
                 displayList.sort((a, b) => b.date.localeCompare(a.date));
             }
 
@@ -371,7 +324,6 @@
             });
         }
 
-        // 초기 데이터 로드
         fetch(URL)
             .then(res => res.text())
             .then(text => {
@@ -382,7 +334,28 @@
                 rows.forEach(row => {
                     if (!row.c[0] || !row.c[2] || !row.c[3]) return;
                     
-                    const dateStr = row.c[0].v; 
+                    // 💡 [핵심 강화] 구글 시트 날짜 오류 원천 차단 로직
+                    let dateStr = "";
+                    if (row.c[0].f) {
+                        // 시트 화면에 보이는 텍스트(예: 2026-07-12)가 있다면 최우선으로 사용
+                        dateStr = row.c[0].f;
+                    } else if (row.c[0].v) {
+                        // 없다면 원본 값 가져오기
+                        dateStr = row.c[0].v.toString();
+                    }
+
+                    // 그래도 Date(2026,6,8) 형태가 남아있다면 강제로 쪼개서 포맷팅
+                    if (dateStr.includes('Date')) {
+                        const numbers = dateStr.match(/\d+/g);
+                        if (numbers && numbers.length >= 3) {
+                            const year = numbers[0];
+                            const month = String(Number(numbers[1]) + 1).padStart(2, '0');
+                            const day = String(Number(numbers[2])).padStart(2, '0');
+                            dateStr = `${year}-${month}-${day}`;
+                        }
+                    }
+                    dateStr = dateStr.trim();
+                    
                     const modelName = row.c[2].v; 
                     const strategyText = row.c[3].v; 
                     const newsUrl = row.c[4] ? row.c[4].v : '#'; 
@@ -402,8 +375,6 @@
                 });
 
                 document.getElementById('update-date').innerText = latestDate;
-                
-                // 로드 완료 후 첫 화면(최신 탭) 렌더링
                 renderCards();
             })
             .catch(error => {
