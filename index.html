@@ -14,6 +14,8 @@
             --insight-bg: #e8f4fd;
             --text-main: #333333;
             --text-muted: #7f8c8d;
+            --tab-bg: #e2e8f0;
+            --tab-active: #ffffff;
         }
 
         body {
@@ -27,8 +29,8 @@
 
         .header {
             text-align: center;
-            margin-bottom: 40px;
-            padding: 20px 0;
+            margin-bottom: 30px;
+            padding: 20px 0 0 0;
         }
 
         .header h1 {
@@ -42,6 +44,64 @@
             color: var(--text-muted);
             font-size: 1.1rem;
             margin: 0;
+        }
+
+        /* 탭 메뉴 스타일 */
+        .tab-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+
+        .tab-btn {
+            background-color: var(--tab-bg);
+            color: var(--text-muted);
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .tab-btn:hover {
+            background-color: #cbd5e1;
+        }
+
+        .tab-btn.active {
+            background-color: var(--accent);
+            color: white;
+            box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+        }
+
+        /* 필터 버튼 스타일 */
+        .filter-container {
+            display: none; /* 기본은 숨김 (히스토리 탭에서만 표시) */
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+
+        .filter-btn {
+            background-color: white;
+            border: 1px solid #cbd5e1;
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
         }
 
         .dashboard-container {
@@ -60,11 +120,19 @@
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
 
         .device-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
         }
 
         .tier-badge {
@@ -74,8 +142,15 @@
             font-size: 0.85rem;
             font-weight: 700;
             color: white;
-            margin-bottom: 12px;
-            align-self: flex-start;
+        }
+        
+        .date-badge {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: #f1f5f9;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 600;
         }
 
         .tier-flagship { background-color: #ff4757; }
@@ -126,7 +201,6 @@
         }
 
         .detail-section strong {
-            color: var(--primary);
             display: block;
             font-size: 0.85rem;
             text-transform: uppercase;
@@ -142,18 +216,25 @@
             color: var(--text-muted);
             padding: 50px;
         }
-
-        #update-date {
-            font-weight: bold;
-            color: var(--accent);
-        }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>🚀 최근 공개 & 출시 임박 스마트폰 라인업</h1>
-        <p>수집 기준일: <span id="update-date">불러오는 중...</span> (가장 최근 데이터 기준 정렬)</p>
+        <h1>🚀 글로벌 스마트폰 전략 대시보드</h1>
+        <p>수집 기준일: <span id="update-date" style="font-weight: bold; color: var(--accent);">불러오는 중...</span></p>
+    </div>
+
+    <div class="tab-container">
+        <button class="tab-btn active" id="tab-latest" onclick="switchTab('latest')">🔥 오늘의 신제품 (최신)</button>
+        <button class="tab-btn" id="tab-history" onclick="switchTab('history')">📚 전체 누적 히스토리</button>
+    </div>
+
+    <div class="filter-container" id="filter-menu">
+        <button class="filter-btn active" onclick="applyFilter('all')">전체 보기</button>
+        <button class="filter-btn" onclick="applyFilter('flagship')">🌟 플래그십</button>
+        <button class="filter-btn" onclick="applyFilter('midrange')">⚖️ 중급형</button>
+        <button class="filter-btn" onclick="applyFilter('budget')">📱 보급형</button>
     </div>
 
     <div class="dashboard-container" id="dashboard">
@@ -161,26 +242,24 @@
     </div>
 
     <script>
-        // 구글 시트 ID 및 설정
         const SHEET_ID = '1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o';
         const SHEET_NAME = '스펙_누적_데이터';
         const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
 
-        // 파이썬에서 생성한 텍스트를 항목별로 파싱하는 정규식 함수
+        let allProducts = [];
+        let latestDate = "";
+        let currentTab = 'latest'; 
+        let currentFilter = 'all';
+
         function parseStrategy(text) {
             const extract = (startWord, endWord) => {
-                let regex;
-                if (endWord) {
-                    regex = new RegExp(startWord + "\\s*:\\s*([\\s\\S]*?)(?=" + endWord + ":|$)");
-                } else {
-                    regex = new RegExp(startWord + "\\s*:\\s*([\\s\\S]*)");
-                }
+                let regex = endWord 
+                    ? new RegExp(startWord + "\\s*:\\s*([\\s\\S]*?)(?=" + endWord + ":|$)")
+                    : new RegExp(startWord + "\\s*:\\s*([\\s\\S]*)");
                 const match = text.match(regex);
                 return match ? match[1].trim() : "정보 없음";
             };
-
             return {
-                maker: extract("제조사", "모델명"),
                 target: extract("주요 타겟 고객층", "핵심 셀링 포인트\\(USP\\)"),
                 usp: extract("핵심 셀링 포인트\\(USP\\)", "가격대 및 포지셔닝"),
                 price: extract("가격대 및 포지셔닝", "제품 인사이트 요약\\(1줄\\)"),
@@ -188,46 +267,132 @@
             };
         }
 
-        // 포지셔닝 텍스트를 기반으로 티어(플래그십/중급/보급) 자동 분류
         function getTierInfo(priceText, targetText) {
             const combined = (priceText + " " + targetText).toLowerCase();
             if (combined.includes('플래그십') || combined.includes('프리미엄') || combined.includes('최고급') || combined.includes('flagship') || combined.includes('premium')) {
-                return { class: 'tier-flagship', label: '🌟 플래그십', rank: 1 };
+                return { id: 'flagship', class: 'tier-flagship', label: '🌟 플래그십', rank: 1 };
             } else if (combined.includes('중급') || combined.includes('미드') || combined.includes('메인스트림') || combined.includes('mid')) {
-                return { class: 'tier-midrange', label: '⚖️ 중급형', rank: 2 };
+                return { id: 'midrange', class: 'tier-midrange', label: '⚖️ 중급형', rank: 2 };
             } else {
-                return { class: 'tier-budget', label: '📱 보급형 / 기타', rank: 3 };
+                return { id: 'budget', class: 'tier-budget', label: '📱 보급형 / 기타', rank: 3 };
             }
         }
 
-        // 데이터 Fetch 및 렌더링
+        // 탭 전환 로직
+        window.switchTab = function(tabName) {
+            currentTab = tabName;
+            
+            // 탭 UI 업데이트
+            document.getElementById('tab-latest').classList.remove('active');
+            document.getElementById('tab-history').classList.remove('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+
+            // 필터 UI 토글 (히스토리에서만 보임)
+            const filterMenu = document.getElementById('filter-menu');
+            if (tabName === 'history') {
+                filterMenu.style.display = 'flex';
+                // 히스토리 탭 진입 시 기본적으로 전체 보기로 초기화
+                applyFilter('all'); 
+            } else {
+                filterMenu.style.display = 'none';
+                renderCards(); 
+            }
+        };
+
+        // 필터 적용 로직
+        window.applyFilter = function(tierId) {
+            currentFilter = tierId;
+            
+            // 필터 UI 업데이트
+            const btns = document.querySelectorAll('.filter-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            renderCards();
+        };
+
+        // 카드 그리기 로직
+        function renderCards() {
+            const dashboard = document.getElementById('dashboard');
+            dashboard.innerHTML = '';
+            
+            let displayList = [];
+
+            if (currentTab === 'latest') {
+                // [최신 탭]: 가장 최근 날짜 데이터만 필터링 후, 플래그십 우선 정렬
+                displayList = allProducts.filter(p => p.date === latestDate);
+                displayList.sort((a, b) => a.tier.rank - b.tier.rank);
+            } else {
+                // [히스토리 탭]: 선택된 필터에 맞게 분류 후, 최신 날짜순 정렬
+                if (currentFilter === 'all') {
+                    displayList = [...allProducts];
+                } else {
+                    displayList = allProducts.filter(p => p.tier.id === currentFilter);
+                }
+                // 날짜 내림차순 정렬 (최신순)
+                displayList.sort((a, b) => b.date.localeCompare(a.date));
+            }
+
+            if (displayList.length === 0) {
+                dashboard.innerHTML = '<div class="loading">해당 조건에 맞는 제품 데이터가 없습니다.</div>';
+                return;
+            }
+
+            displayList.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'device-card';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <span class="tier-badge ${product.tier.class}">${product.tier.label}</span>
+                        <span class="date-badge"><i class="far fa-calendar-alt"></i> ${product.date}</span>
+                    </div>
+                    <h2 class="device-title">
+                        ${product.modelName} 
+                        <a href="${product.url}" target="_blank" title="원문 기사 보기"><i class="fas fa-external-link-alt"></i></a>
+                    </h2>
+                    <div class="insight-box">
+                        <strong><i class="fas fa-lightbulb"></i> 제품 인사이트 요약</strong>
+                        <p>${product.insight}</p>
+                    </div>
+                    <div class="detail-section">
+                        <strong><i class="fas fa-bullseye"></i> 주요 타겟 고객층</strong>
+                        ${product.target}
+                    </div>
+                    <div class="detail-section">
+                        <strong><i class="fas fa-star"></i> 핵심 셀링 포인트 (USP)</strong>
+                        ${product.usp}
+                    </div>
+                    <div class="detail-section">
+                        <strong><i class="fas fa-tag"></i> 가격대 및 포지셔닝</strong>
+                        ${product.price}
+                    </div>
+                `;
+                dashboard.appendChild(card);
+            });
+        }
+
+        // 초기 데이터 로드
         fetch(URL)
             .then(res => res.text())
             .then(text => {
-                // 구글 gviz json 형태로 변환
                 const jsonStr = text.substring(47).slice(0, -2);
                 const json = JSON.parse(jsonStr);
                 const rows = json.table.rows;
 
-                let products = [];
-                let latestDate = "";
-
-                // 행 데이터 추출
                 rows.forEach(row => {
                     if (!row.c[0] || !row.c[2] || !row.c[3]) return;
                     
-                    const dateStr = row.c[0].v; // A열: 날짜
-                    const modelName = row.c[2].v; // C열: 모델명
-                    const strategyText = row.c[3].v; // D열: 분석 텍스트
-                    const newsUrl = row.c[4] ? row.c[4].v : '#'; // E열: URL
+                    const dateStr = row.c[0].v; 
+                    const modelName = row.c[2].v; 
+                    const strategyText = row.c[3].v; 
+                    const newsUrl = row.c[4] ? row.c[4].v : '#'; 
 
-                    // 가장 최근 날짜 찾기
                     if (dateStr > latestDate) latestDate = dateStr;
 
                     const details = parseStrategy(strategyText);
                     const tier = getTierInfo(details.price, details.target);
 
-                    products.push({
+                    allProducts.push({
                         date: dateStr,
                         modelName: modelName,
                         url: newsUrl,
@@ -236,58 +401,14 @@
                     });
                 });
 
-                // 1. 가장 최신 날짜의 데이터만 필터링 (당일 수집 정보)
-                let latestProducts = products.filter(p => p.date === latestDate);
-
-                // 2. 티어 랭크 기준 오름차순 정렬 (플래그십이 무조건 먼저 오도록)
-                latestProducts.sort((a, b) => a.tier.rank - b.tier.rank);
-
-                // 화면 업데이트
                 document.getElementById('update-date').innerText = latestDate;
-                const dashboard = document.getElementById('dashboard');
-                dashboard.innerHTML = ''; // 로딩 텍스트 제거
-
-                if (latestProducts.length === 0) {
-                    dashboard.innerHTML = '<div class="loading">최근 공개된 신제품 데이터가 없습니다.</div>';
-                    return;
-                }
-
-                // 카드 생성
-                latestProducts.forEach(product => {
-                    const card = document.createElement('div');
-                    card.className = 'device-card';
-                    card.innerHTML = `
-                        <div class="tier-badge ${product.tier.class}">${product.tier.label}</div>
-                        <h2 class="device-title">
-                            ${product.modelName} 
-                            <a href="${product.url}" target="_blank" title="원문 기사 보기"><i class="fas fa-external-link-alt"></i></a>
-                        </h2>
-                        
-                        <div class="insight-box">
-                            <strong><i class="fas fa-lightbulb"></i> 제품 인사이트 요약</strong>
-                            <p>${product.insight}</p>
-                        </div>
-
-                        <div class="detail-section">
-                            <strong><i class="fas fa-bullseye"></i> 주요 타겟 고객층</strong>
-                            ${product.target}
-                        </div>
-                        <div class="detail-section">
-                            <strong><i class="fas fa-star"></i> 핵심 셀링 포인트 (USP)</strong>
-                            ${product.usp}
-                        </div>
-                        <div class="detail-section">
-                            <strong><i class="fas fa-tag"></i> 가격대 및 포지셔닝</strong>
-                            ${product.price}
-                        </div>
-                    `;
-                    dashboard.appendChild(card);
-                });
-
+                
+                // 로드 완료 후 첫 화면(최신 탭) 렌더링
+                renderCards();
             })
             .catch(error => {
                 console.error("데이터 로드 실패:", error);
-                document.getElementById('dashboard').innerHTML = '<div class="loading" style="color:red;">데이터를 불러오는 중 오류가 발생했습니다. 구글 시트 권한(링크가 있는 모든 사용자 보기)을 확인해주세요.</div>';
+                document.getElementById('dashboard').innerHTML = '<div class="loading" style="color:red;">데이터를 불러오는 중 오류가 발생했습니다. 구글 시트 권한을 확인해주세요.</div>';
             });
     </script>
 </body>
