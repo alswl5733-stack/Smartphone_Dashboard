@@ -7,15 +7,16 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #f4f7f6;
+            --bg-color: #f8fafc;
             --card-bg: #ffffff;
-            --primary: #2c3e50;
-            --accent: #3498db;
-            --insight-bg: #e8f4fd;
-            --text-main: #333333;
-            --text-muted: #7f8c8d;
+            --primary: #0f172a;
+            --accent: #0284c7;
+            --insight-bg: #f0f9ff;
+            --insight-border: #bae6fd;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
             --tab-bg: #e2e8f0;
-            --tab-active: #ffffff;
         }
 
         body {
@@ -23,21 +24,21 @@
             background-color: var(--bg-color);
             color: var(--text-main);
             margin: 0;
-            padding: 20px;
-            line-height: 1.6;
+            padding: 30px 20px;
+            line-height: 1.7;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
-            padding: 20px 0 0 0;
+            margin-bottom: 35px;
         }
 
         .header h1 {
-            font-size: 2.2rem;
+            font-size: 2.4rem;
             color: var(--primary);
             margin: 0 0 10px 0;
             letter-spacing: -1px;
+            font-weight: 800;
         }
 
         .header p {
@@ -46,46 +47,47 @@
             margin: 0;
         }
 
+        /* 탭 스타일 */
         .tab-container {
             display: flex;
             justify-content: center;
             margin-bottom: 30px;
-            gap: 10px;
+            gap: 12px;
         }
 
         .tab-btn {
             background-color: var(--tab-bg);
             color: var(--text-muted);
             border: none;
-            padding: 12px 24px;
-            font-size: 1.1rem;
+            padding: 12px 28px;
+            font-size: 1.05rem;
             font-weight: 700;
             border-radius: 30px;
             cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
         }
 
         .tab-btn:hover { background-color: #cbd5e1; }
         .tab-btn.active {
             background-color: var(--accent);
             color: white;
-            box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
         }
 
+        /* 필터 스타일 */
         .filter-container {
             display: none; 
             justify-content: center;
             flex-wrap: wrap;
-            margin-bottom: 30px;
+            margin-bottom: 35px;
             gap: 10px;
         }
 
         .filter-btn {
             background-color: white;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--border-color);
             color: var(--text-muted);
-            padding: 8px 16px;
+            padding: 8px 18px;
             border-radius: 20px;
             font-size: 0.95rem;
             font-weight: 600;
@@ -99,112 +101,181 @@
             border-color: var(--primary);
         }
 
+        /* 🚀 핵심: 가로형 와이드 레이아웃 컨테이너 */
         .dashboard-container {
-            max-width: 1200px;
+            max-width: 1300px;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            display: flex;
+            flex-direction: column;
             gap: 24px;
         }
 
+        /* 가로형 카드 배치 */
         .device-card {
             background: var(--card-bg);
             border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            border: 1px solid var(--border-color);
+            display: flex; /* 가로 분할 */
+            overflow: hidden;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
-            display: flex;
-            flex-direction: column;
-            position: relative;
         }
 
         .device-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08);
         }
 
-        .card-header {
+        /* 카드 왼쪽: 기기 핵심 요약 영역 (35% 고정) */
+        .card-left {
+            width: 35%;
+            padding: 30px;
+            background-color: #fafafa;
+            border-right: 1px solid var(--border-color);
             display: flex;
+            flex-direction: column;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
+        }
+
+        .card-meta {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
         }
 
         .tier-badge {
-            display: inline-block;
             padding: 4px 12px;
             border-radius: 20px;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 700;
             color: white;
         }
-        
+        .tier-flagship { background-color: #ef4444; }
+        .tier-midrange { background-color: #10b981; }
+        .tier-budget { background-color: #3b82f6; }
+
         .date-badge {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
             background: #f1f5f9;
-            padding: 4px 8px;
+            padding: 4px 10px;
             border-radius: 6px;
             font-weight: 600;
         }
 
-        .tier-flagship { background-color: #ff4757; }
-        .tier-midrange { background-color: #2ed573; }
-        .tier-budget { background-color: #1e90ff; }
-
         .device-title {
-            font-size: 1.4rem;
+            font-size: 1.6rem;
             font-weight: 800;
-            margin: 0 0 15px 0;
+            margin: 0 0 20px 0;
             color: var(--primary);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            line-height: 1.3;
         }
 
-        .device-title a { color: var(--accent); font-size: 1rem; text-decoration: none; }
+        .device-title a {
+            color: var(--accent);
+            font-size: 1.1rem;
+            text-decoration: none;
+            margin-left: 8px;
+        }
 
         .insight-box {
             background-color: var(--insight-bg);
-            border-left: 4px solid var(--accent);
-            padding: 15px;
-            border-radius: 4px 8px 8px 4px;
-            margin-bottom: 20px;
+            border: 1px solid var(--insight-border);
+            padding: 18px;
+            border-radius: 12px;
         }
 
-        .insight-box strong { display: block; color: var(--accent); font-size: 0.9rem; margin-bottom: 5px; }
-        .insight-box p { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--primary); }
+        .insight-box strong {
+            display: block;
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
 
-        .detail-section { margin-bottom: 12px; font-size: 0.95rem; }
+        .insight-box p {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--primary);
+            line-height: 1.5;
+        }
+
+        /* 카드 오른쪽: 상세 전략 영역 (65% 유연 배치) */
+        .card-right {
+            width: 65%;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .detail-section {
+            border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 15px;
+        }
+
+        .detail-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
         .detail-section strong {
-            display: block; font-size: 0.85rem; text-transform: uppercase;
-            letter-spacing: 0.5px; margin-bottom: 2px; color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            color: var(--primary);
+            margin-bottom: 8px;
+            font-weight: 700;
         }
 
-        .loading { text-align: center; grid-column: 1 / -1; font-size: 1.2rem; color: var(--text-muted); padding: 50px; }
+        .detail-section strong i {
+            color: var(--accent);
+            width: 16px;
+        }
+
+        /* 🧹 정제된 텍스트 본문 스타일 */
+        .detail-content {
+            font-size: 1rem;
+            color: var(--text-main);
+            padding-left: 24px;
+            white-space: pre-line; /* 줄바꿈 자연스럽게 처리 */
+        }
+
+        .loading { text-align: center; font-size: 1.2rem; color: var(--text-muted); padding: 50px; }
+
+        /* 반응형: 태블릿이나 모바일에서는 세로로 복원 */
+        @media (max-width: 900px) {
+            .device-card { flex-direction: column; }
+            .card-left, .card-right { width: 100%; box-sizing: border-box; }
+            .card-left { border-right: none; border-bottom: 1px solid var(--border-color); }
+        }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>🚀 글로벌 스마트폰 전략 대시보드</h1>
-        <p>수집 기준일: <span id="update-date" style="font-weight: bold; color: var(--accent);">불러오는 중...</span></p>
+        <h1>📊 스마트폰 전략 상품기획 대시보드</h1>
+        <p>최신 동향 동기화 시점: <span id="update-date" style="font-weight: 800; color: var(--accent);">불러오는 중...</span></p>
     </div>
 
     <div class="tab-container">
-        <button class="tab-btn active" id="tab-latest" onclick="switchTab('latest')">🔥 오늘의 신제품 (최신)</button>
-        <button class="tab-btn" id="tab-history" onclick="switchTab('history')">📚 전체 누적 히스토리</button>
+        <button class="tab-btn active" id="tab-latest" onclick="switchTab('latest')">🔥 최신 보고서 (당일)</button>
+        <button class="tab-btn" id="tab-history" onclick="switchTab('history')">📚 아카이브 (누적 이력)</button>
     </div>
 
     <div class="filter-container" id="filter-menu">
-        <button class="filter-btn active" onclick="applyFilter('all')">전체 보기</button>
+        <button class="filter-btn active" onclick="applyFilter('all')">전체 등급</button>
         <button class="filter-btn" onclick="applyFilter('flagship')">🌟 플래그십</button>
         <button class="filter-btn" onclick="applyFilter('midrange')">⚖️ 중급형</button>
         <button class="filter-btn" onclick="applyFilter('budget')">📱 보급형</button>
     </div>
 
     <div class="dashboard-container" id="dashboard">
-        <div class="loading"><i class="fas fa-spinner fa-spin"></i> 구글 시트에서 최신 전략 데이터를 불러오고 있습니다...</div>
+        <div class="loading"><i class="fas fa-spinner fa-spin"></i> 구글 데이터베이스를 연동하고 있습니다...</div>
     </div>
 
     <script>
@@ -217,19 +288,30 @@
         let currentTab = 'latest'; 
         let currentFilter = 'all';
 
+        // 🧹 지저분한 마크다운 기호와 잔여 찌꺼기를 말끔히 지우는 초강력 텍스트 정제 함수
+        function cleanText(rawText) {
+            if (!rawText) return "정보 없음";
+            return rawText
+                .replace(/\*\*/g, '')          // ** 제거
+                .replace(/\*/g, '• ')           // * 기호를 깔끔한 불릿포인트(•)로 변경
+                .replace(/([^•])• /g, '$1\n• ') // 항목별 가독성을 위해 불릿 기호 앞 자동 줄바꿈 추가
+                .replace(/^\s*[\r\n]/gm, '')   // 무의미한 빈 줄 제거
+                .trim();
+        }
+
         function parseStrategy(text) {
             const extract = (startWord, endWord) => {
                 let regex = endWord 
                     ? new RegExp(startWord + "\\s*:\\s*([\\s\\S]*?)(?=" + endWord + ":|$)")
                     : new RegExp(startWord + "\\s*:\\s*([\\s\\S]*)");
                 const match = text.match(regex);
-                return match ? match[1].trim() : "정보 없음";
+                return match ? cleanText(match[1]) : "정보 없음";
             };
             return {
                 target: extract("주요 타겟 고객층", "핵심 셀링 포인트\\(USP\\)"),
                 usp: extract("핵심 셀링 포인트\\(USP\\)", "가격대 및 포지셔닝"),
                 price: extract("가격대 및 포지셔닝", "제품 인사이트 요약\\(1줄\\)"),
-                insight: extract("제품 인사이트 요약\\(1줄\\)", null)
+                insight: extract("제품 인사이트 요약\\(1줄\\)", null).replace(/• /g, '') // 요약문에는 불릿 기호도 제거
             };
         }
 
@@ -240,7 +322,7 @@
             } else if (combined.includes('중급') || combined.includes('미드') || combined.includes('메인스트림') || combined.includes('mid')) {
                 return { id: 'midrange', class: 'tier-midrange', label: '⚖️ 중급형', rank: 2 };
             } else {
-                return { id: 'budget', class: 'tier-budget', label: '📱 보급형 / 기타', rank: 3 };
+                return { id: 'budget', class: 'tier-budget', label: '📱 보급형', rank: 3 };
             }
         }
 
@@ -264,7 +346,7 @@
             currentFilter = tierId;
             const btns = document.querySelectorAll('.filter-btn');
             btns.forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            if(event) event.target.classList.add('active');
             renderCards();
         };
 
@@ -278,16 +360,12 @@
                 displayList = allProducts.filter(p => p.date === latestDate);
                 displayList.sort((a, b) => a.tier.rank - b.tier.rank);
             } else {
-                if (currentFilter === 'all') {
-                    displayList = [...allProducts];
-                } else {
-                    displayList = allProducts.filter(p => p.tier.id === currentFilter);
-                }
+                displayList = currentFilter === 'all' ? [...allProducts] : allProducts.filter(p => p.tier.id === currentFilter);
                 displayList.sort((a, b) => b.date.localeCompare(a.date));
             }
 
             if (displayList.length === 0) {
-                dashboard.innerHTML = '<div class="loading">해당 조건에 맞는 제품 데이터가 없습니다.</div>';
+                dashboard.innerHTML = '<div class="loading">해당 조건에 부합하는 분석 데이터가 없습니다.</div>';
                 return;
             }
 
@@ -295,29 +373,36 @@
                 const card = document.createElement('div');
                 card.className = 'device-card';
                 card.innerHTML = `
-                    <div class="card-header">
-                        <span class="tier-badge ${product.tier.class}">${product.tier.label}</span>
-                        <span class="date-badge"><i class="far fa-calendar-alt"></i> ${product.date}</span>
+                    <div class="card-left">
+                        <div>
+                            <div class="card-meta">
+                                <span class="tier-badge ${product.tier.class}">${product.tier.label}</span>
+                                <span class="date-badge"><i class="far fa-calendar-alt"></i> ${product.date}</span>
+                            </div>
+                            <h2 class="device-title">
+                                ${product.modelName} 
+                                <a href="${product.url}" target="_blank" title="출시 원문 기사 링크"><i class="fas fa-external-link-alt"></i></a>
+                            </h2>
+                        </div>
+                        <div class="insight-box">
+                            <strong><i class="fas fa-quote-left"></i> 기획자 시사점</strong>
+                            <p>${product.insight}</p>
+                        </div>
                     </div>
-                    <h2 class="device-title">
-                        ${product.modelName} 
-                        <a href="${product.url}" target="_blank" title="원문 기사 보기"><i class="fas fa-external-link-alt"></i></a>
-                    </h2>
-                    <div class="insight-box">
-                        <strong><i class="fas fa-lightbulb"></i> 제품 인사이트 요약</strong>
-                        <p>${product.insight}</p>
-                    </div>
-                    <div class="detail-section">
-                        <strong><i class="fas fa-bullseye"></i> 주요 타겟 고객층</strong>
-                        ${product.target}
-                    </div>
-                    <div class="detail-section">
-                        <strong><i class="fas fa-star"></i> 핵심 셀링 포인트 (USP)</strong>
-                        ${product.usp}
-                    </div>
-                    <div class="detail-section">
-                        <strong><i class="fas fa-tag"></i> 가격대 및 포지셔닝</strong>
-                        ${product.price}
+                    
+                    <div class="card-right">
+                        <div class="detail-section">
+                            <strong><i class="fas fa-bullseye"></i> 주요 타겟 고객층</strong>
+                            <div class="detail-content">${product.target}</div>
+                        </div>
+                        <div class="detail-section">
+                            <strong><i class="fas fa-gem"></i> 핵심 셀링 포인트 (USP)</strong>
+                            <div class="detail-content">${product.usp}</div>
+                        </div>
+                        <div class="detail-section">
+                            <strong><i class="fas fa-tags"></i> 가격대 및 포지셔닝 전략</strong>
+                            <div class="detail-content">${product.price}</div>
+                        </div>
                     </div>
                 `;
                 dashboard.appendChild(card);
@@ -334,24 +419,12 @@
                 rows.forEach(row => {
                     if (!row.c[0] || !row.c[2] || !row.c[3]) return;
                     
-                    // 💡 [핵심 강화] 구글 시트 날짜 오류 원천 차단 로직
-                    let dateStr = "";
-                    if (row.c[0].f) {
-                        // 시트 화면에 보이는 텍스트(예: 2026-07-12)가 있다면 최우선으로 사용
-                        dateStr = row.c[0].f;
-                    } else if (row.c[0].v) {
-                        // 없다면 원본 값 가져오기
-                        dateStr = row.c[0].v.toString();
-                    }
+                    let dateStr = row.c[0].f ? row.c[0].f : row.c[0].v.toString();
 
-                    // 그래도 Date(2026,6,8) 형태가 남아있다면 강제로 쪼개서 포맷팅
                     if (dateStr.includes('Date')) {
                         const numbers = dateStr.match(/\d+/g);
                         if (numbers && numbers.length >= 3) {
-                            const year = numbers[0];
-                            const month = String(Number(numbers[1]) + 1).padStart(2, '0');
-                            const day = String(Number(numbers[2])).padStart(2, '0');
-                            dateStr = `${year}-${month}-${day}`;
+                            dateStr = `${numbers[0]}-${String(Number(numbers[1]) + 1).padStart(2, '0')}-${String(Number(numbers[2])).padStart(2, '0')}`;
                         }
                     }
                     dateStr = dateStr.trim();
@@ -378,8 +451,8 @@
                 renderCards();
             })
             .catch(error => {
-                console.error("데이터 로드 실패:", error);
-                document.getElementById('dashboard').innerHTML = '<div class="loading" style="color:red;">데이터를 불러오는 중 오류가 발생했습니다. 구글 시트 권한을 확인해주세요.</div>';
+                console.error("데이터 동기화 실패:", error);
+                document.getElementById('dashboard').innerHTML = '<div class="loading" style="color:#ef4444;">시트 데이터 로드에 실패했습니다. 공유 권한 설정을 확인해 주세요.</div>';
             });
     </script>
 </body>
