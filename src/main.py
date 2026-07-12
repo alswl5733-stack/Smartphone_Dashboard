@@ -32,7 +32,7 @@ def get_kst_dates():
     kst = datetime.timezone(datetime.timedelta(hours=9))
     
     # 💡 [테스트용 타임머신] 시스템의 오늘 날짜를 2026년 7월 8일로 강제 고정
-    today = datetime.datetime(2026, 3, 11, 12, 0, 0, tzinfo=kst)
+    today = datetime.datetime(2026, 7, 8, 12, 0, 0, tzinfo=kst)
     yesterday = today - datetime.timedelta(days=1)
     tomorrow = today + datetime.timedelta(days=1)
     day_before_yesterday = today - datetime.timedelta(days=2) 
@@ -44,25 +44,10 @@ def get_kst_dates():
         "tomorrow_query": tomorrow.strftime("%Y-%m-%d")    
     }
 
-def get_existing_models_from_sheet():
-    print("📂 [DB 확인] 구글 시트에서 기존 수집된 모델명 목록을 불러옵니다...")
-    service = get_sheets_service()
-    if not service: return []
-    try:
-        result = service.spreadsheets().values().get(
-            spreadsheetId=SPREADSHEET_ID, range="스펙_누적_데이터!C:C"
-        ).execute()
-        values = result.get('values', [])
-        return [row[0].strip().lower() for row in values if row]
-    except Exception as e:
-        print(f"⚠️ 기존 데이터 불러오기 에러: {e}")
-        return []
-
 def detect_new_releases():
     dates = get_kst_dates()
     print(f"📡 [1단계: 정찰] 검색망({dates['yesterday_query']} ~ {dates['tomorrow_query']}) 내의 기사를 검사합니다...")
     
-    # 광범위 검색망 복구 (다양한 브랜드 포획)
     search_query = f"smartphone (launch OR announcement) after:{dates['yesterday_query']} before:{dates['tomorrow_query']}"
     encoded_query = urllib.parse.quote(search_query)
     url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
@@ -107,12 +92,11 @@ def detect_new_releases():
             
             ai_response = lite_model.generate_content(check_prompt).text.strip()
             
-            # 군더더기 텍스트 완벽 제거
             cleaned_name = ai_response.replace("예,", "").replace("Yes,", "").replace("예", "").replace("Yes", "").strip()
             
             if "아니오" not in ai_response and len(cleaned_name) > 2:
                 model_name = cleaned_name
-                print(f"  ㄴ 🚨 실제 출시 확인됨: {model_name}")
+                print(f"  ㄴ 🚨 실제 소식 확인됨: {model_name}")
                 found_models.append({"model_name": model_name, "primary_url": link, "intro_text": article_text})
                 
             time.sleep(5) 
@@ -121,24 +105,6 @@ def detect_new_releases():
     except Exception as e:
         print(f"⚠️ 정찰 에러 발생: {e}")
         return []
-
-def deduplicate_models(models):
-    print("\n🔍 [중복 제거] 수집된 모델명 통합 작업을 진행합니다...")
-    unique_models = []
-    for item in models:
-        is_duplicate = False
-        for u_item in unique_models:
-            prompt = f"'{item['model_name']}'와 '{u_item['model_name']}'가 같은 스마트폰 기기를 의미하나요? 맞으면 '예', 다르면 '아니오'로만 답하세요."
-            ans = lite_model.generate_content(prompt).text.strip()
-            if "예" in ans or "Yes" in ans:
-                is_duplicate = True
-                print(f"  ㄴ 🗑️ 중복 제외됨: {item['model_name']}")
-                break
-            time.sleep(5)
-        if not is_duplicate:
-            unique_models.append(item)
-            print(f"  ㄴ ✅ 고유 모델 등록: {item['model_name']}")
-    return unique_models
 
 def fetch_usp_and_target(model_name, intro_text):
     print(f"🧠 [{model_name}] 기사 심층 분석 및 인사이트 도출 중 (Pro 모델 가동)...")
@@ -153,12 +119,10 @@ def fetch_usp_and_target(model_name, intro_text):
         soup = BeautifulSoup(response.content, 'xml')
         items = soup.find_all('item')
         
-        # 💡 기사 수집량을 2개에서 4개로 늘리고, 더 깊게 파고듭니다.
         for item in items[:4]:
             try:
                 res = requests.get(item.link.text, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
                 art_soup = BeautifulSoup(res.text, 'html.parser')
-                # li (리스트) 태그까지 긁어와서 스펙/기능을 샅샅이 뒤집니다.
                 elements = art_soup.find_all(['p', 'h1', 'h2', 'li'])
                 extracted_texts = [el.text.strip() for el in elements if len(el.text.strip()) > 10]
                 combined_text += "\n".join(extracted_texts[:40]) + "\n"
@@ -179,7 +143,6 @@ def fetch_usp_and_target(model_name, intro_text):
         가격대 및 포지셔닝: 
         제품 인사이트 요약(1줄): 
         """
-        # 💡 Lite 대신 강력한 Pro 모델(3.5-flash)을 사용하여 깊이를 극대화합니다.
         result = pro_model.generate_content(usp_prompt).text
         time.sleep(5)
         return result
@@ -190,6 +153,7 @@ def save_to_cumulative_sheet(model_name, strategy_text, url):
     service = get_sheets_service()
     if not service: return
     try:
+        # 💡 [테스트용 타임머신] 
         current_date = "2026-07-08"
         
         service.spreadsheets().values().append(
@@ -200,34 +164,22 @@ def save_to_cumulative_sheet(model_name, strategy_text, url):
         print(f"⚠️ 시트 저장 에러: {e}")
 
 if __name__ == "__main__":
-    print(f"[2026-07-08 12:00:00] 🚀 명시적 날짜 & 구글 시트 DB 중복 필터링 시스템 가동 (타임머신 테스트 모드)")
+    print(f"[2026-07-08 12:00:00] 🚀 명시적 날짜 & 출시 임박 포함 신제품 분석 파이프라인 가동 (타임머신 테스트 모드)")
     
-    existing_models_in_db = get_existing_models_from_sheet()
-    
-    detected_models = detect_new_releases()
-    unique_models = deduplicate_models(detected_models)
-    
-    final_target_models = []
-    if unique_models:
-        print("\n🛡️ [사전 검증] 구글 시트에 이미 기록된 제품인지 대조합니다...")
-        for device in unique_models:
-            clean_name = device['model_name'].strip().lower()
-            
-            is_already_saved = False
-            for db_model in existing_models_in_db:
-                if clean_name in db_model or db_model in clean_name:
-                    is_already_saved = True
-                    break
-            
-            if is_already_saved:
-                print(f"  ㄴ ⏩ 패스: '{device['model_name']}' (이미 시트에 저장된 제품입니다)")
-            else:
-                print(f"  ㄴ 🆕 신규: '{device['model_name']}' (분석 대상에 추가됨)")
-                final_target_models.append(device)
+    final_target_models = detect_new_releases()
     
     if final_target_models:
-        print(f"\n총 {len(final_target_models)}개의 완벽한 신제품 마케팅 전략 분석을 시작합니다.")
+        print(f"\n총 {len(final_target_models)}건의 소식(출시 임박 포함) 마케팅 전략 분석을 시작합니다.")
+        
+        # 💡 동일한 런타임(오늘 한 번 도는 동안) 내에서의 단순 중복 기사 방지용
+        analyzed_models = set()
+        
         for device in final_target_models:
+            clean_name = device['model_name'].strip().lower()
+            if clean_name in analyzed_models:
+                continue
+            analyzed_models.add(clean_name)
+            
             strategy_info = fetch_usp_and_target(device['model_name'], device['intro_text'])
             print(f"  ㄴ {device['model_name']} 분석 완료")
             save_to_cumulative_sheet(device['model_name'], strategy_info, device['primary_url'])
@@ -235,4 +187,4 @@ if __name__ == "__main__":
         
         print("\n✅ 모든 상품기획 파이프라인 처리가 성공적으로 완료되었습니다!")
     else:
-        print("\n✅ 시스템 정상 작동: 오늘(최근 2일 이내) 새롭게 추가할 공식 신제품이 없습니다.")
+        print("\n✅ 시스템 정상 작동: 오늘(최근 2일 이내) 새롭게 추가할 신제품 소식이 없습니다.")
