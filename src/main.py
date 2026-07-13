@@ -35,8 +35,8 @@ def get_kst_dates():
     kst = datetime.timezone(datetime.timedelta(hours=9))
     
     # 🔓 [실전 라이브 모드] 시스템의 실제 현재 한국 시간을 기준으로 작동합니다.
-    # 💡 (테스트 필요 시 datetime.datetime(2026, 7, 8, ...) 형태로 원하는 과거 날짜 주입 가능)
-    today = datetime.datetime.now(kst)
+    # 💡 (테스트 필요 시 datetime.datetime(2026, 7, 8, ...) 형태로 원하는 과거 날짜 주입 가능) #자동화 시 today = datetime.datetime.now(kst)로 수정
+    today = datetime.datetime(2026,6,19, 12,00,00)
     
     yesterday = today - datetime.timedelta(days=1)
     tomorrow = today + datetime.timedelta(days=1)
