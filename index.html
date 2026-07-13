@@ -315,5 +315,40 @@
             
             return htmlResult;
         }
+        // 💡 [깃허브 에러 방지] 괄호(USP)와 정규식 완전 제거. 오직 indexOf만 사용
+        function parseStrategy(text) {
+            const extract = (startKey, endKey) => {
+                let startIdx = text.indexOf(startKey);
+                if (startIdx === -1) return "";
+                
+                let colonIdx = text.indexOf(":", startIdx);
+                if (colonIdx === -1) colonIdx = startIdx + startKey.length;
+                
+                let contentStart = colonIdx + 1;
+                let contentEnd = endKey ? text.indexOf(endKey, contentStart) : text.length;
+                
+                if (contentEnd === -1) contentEnd = text.length;
+                return text.substring(contentStart, contentEnd).trim();
+            };
+            
+            // 괄호 없이 핵심 단어만으로 유연하게 추출
+            let makerStr = extract("제조사", "모델명");
+            let targetStr = extract("주요 타겟 고객층", "핵심 셀링 포인트");
+            let uspStr = extract("핵심 셀링 포인트", "가격대 및 포지셔닝");
+            let priceStr = extract("가격대 및 포지셔닝", "제품 인사이트 요약");
+            let insightStr = extract("제품 인사이트 요약", null);
+
+            return {
+                maker: makerStr.split('•').join('').split('*').join('').trim(), 
+                target: formatDetailContent(targetStr),
+                usp: formatDetailContent(uspStr),
+                price: formatDetailContent(priceStr),
+                insight: insightStr.split('•').join('').split('*').join('').trim()
+            };
+        }
+
+        function getTierInfo(priceText, targetText) {
+            const priceLower = priceText.toLowerCase();
+            const targetLower = targetText.toLowerCase();
 
         
