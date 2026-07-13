@@ -206,4 +206,10 @@ window.switchTab = function(tabName) {
                 renderCards(); 
             }
         };
- 
+ window.applyFilter = function(tierId) {
+            currentFilter = tierId;
+            const btns = document.querySelectorAll('.filter-btn');
+            btns.forEach(function(btn) { btn.classList.remove('active'); });
+            if(event && event.target.classList.contains('filter-btn')) event.target.classList.add('active');
+            renderCards();
+        };
