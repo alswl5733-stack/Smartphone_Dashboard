@@ -347,18 +347,20 @@
             };
         }
 
-       function getTierInfo(priceText, targetText) {
-            const priceLower = priceText.toLowerCase();
-            const targetLower = targetText.toLowerCase();
+function getTierInfo(priceText, targetText) {
+            var priceLower = priceText.toLowerCase();
+            var targetLower = targetText.toLowerCase();
 
-            if (priceLower.includes('보급형') || priceLower.includes('초가성비') || priceLower.includes('엔트리') || priceLower.includes('저가') || priceLower.includes('budget')) {
-                return { id: 'budget', class: 'tier-budget', label: '📱 보급형', rank: 3 };
-            }
-            if (priceLower.includes('중급') || priceLower.includes('메인스트림') || priceLower.includes('미드') || priceLower.includes('mid')) {
-                return { id: 'midrange', class: 'tier-midrange', label: '⚖️ 중급형', rank: 2 };
-            }
-            if (priceLower.includes('플래그십') || priceLower.includes('프리미엄') || priceLower.includes('최고급') || priceLower.includes('flagship') || priceLower.includes('premium')) {
-                return { id: 'flagship', class: 'tier-flagship', label: '🌟 플래그십', rank: 1 };
+            // 💡 [깃허브 에러 방지] 텍스트를 배열(주머니)에 담아두고, || 기호 없이 순서대로 검사합니다.
+            var budgetKeys = ['보급형', '초가성비', '엔트리', '저가', 'budget'];
+            var midKeys = ['중급', '메인스트림', '미드', 'mid'];
+            var flagKeys = ['플래그십', '프리미엄', '최고급', 'flagship', 'premium'];
+
+            // 단어가 포함되어 있는지 확인하는 전용 안전 함수
+            function hasKey(text, keys) {
+                for (var i = 0; i < keys.length; i++) {
+                    if (text.indexOf(keys[i]) !== -1) return true;
+                }
+                return false;
             }
 
-                
