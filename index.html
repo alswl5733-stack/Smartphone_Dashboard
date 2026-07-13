@@ -353,3 +353,11 @@
 
             if (priceLower.includes('보급형') || priceLower.includes('초가성비') || priceLower.includes('엔트리') || priceLower.includes('저가') || priceLower.includes('budget')) {
                 return { id: 'budget', class: 'tier-budget', label: '📱 보급형', rank: 3 };
+            }
+            if (priceLower.includes('중급') || priceLower.includes('메인스트림') || priceLower.includes('미드') || priceLower.includes('mid')) {
+                return { id: 'midrange', class: 'tier-midrange', label: '⚖️ 중급형', rank: 2 };
+            }
+            if (priceLower.includes('플래그십') || priceLower.includes('프리미엄') || priceLower.includes('최고급') || priceLower.includes('flagship') || priceLower.includes('premium')) {
+                return { id: 'flagship', class: 'tier-flagship', label: '🌟 플래그십', rank: 1 };
+            }
+                
