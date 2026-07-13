@@ -1,32 +1,35 @@
-name: Daily IT News Bot
+name: daily_bot
 
 on:
   schedule:
-    # 한국 시간 기준 매일 오전 8시 작동 (UTC 시간 기준 23:00)
+    # 영국 시간 밤 11시 = 한국 시간 오전 8시 정각 자동 실행
     - cron: '0 23 * * *'
-  workflow_dispatch: # 수동 실행 버튼 유지
+  workflow_dispatch: # 직접 실행 버튼 활성화
 
 jobs:
-  build:
+  run-bot:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-- name: Install dependencies
+      # 💡 requirements.txt 파일 없이 다이렉트로 필요한 패키지를 설치합니다.
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 google-generativeai google-auth google-api-python-client lxml
 
-    - name: Run main script
-      env:
-        # 깃허브 Secrets에 등록한 API 키와 서비스 계정 정보를 환경변수로 전달
-        API_KEY: ${{ secrets.API_KEY }}
-        GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-      run: python src/main.py
+      # 💡 main.py가 src 폴더 안에 있다면 아래처럼 경로를 지정해 줍니다.
+      # 만약 폴더 없이 메인에 있다면 python main.py 로 수정해 주세요.
+      - name: Run Python Script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+        run: |
+          python src/main.py
