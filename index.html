@@ -191,5 +191,19 @@
             if (result === 0) { result = 3; }
             return result;
         }
+window.switchTab = function(tabName) {
+            currentTab = tabName;
+            document.getElementById('tab-latest').classList.remove('active');
+            document.getElementById('tab-history').classList.remove('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
 
+            const filterMenu = document.getElementById('filter-menu');
+            if (tabName === 'history') {
+                filterMenu.style.display = 'flex';
+                applyFilter('all'); 
+            } else {
+                filterMenu.style.display = 'none';
+                renderCards(); 
+            }
+        };
  
