@@ -28,229 +28,49 @@
             line-height: 1.7;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 35px;
-        }
+        .header { text-align: center; margin-bottom: 35px; }
+        .header h1 { font-size: 2.4rem; color: var(--primary); margin: 0 0 10px 0; letter-spacing: -1px; font-weight: 800; }
+        .header p { color: var(--text-muted); font-size: 1.1rem; margin: 0; }
 
-        .header h1 {
-            font-size: 2.4rem;
-            color: var(--primary);
-            margin: 0 0 10px 0;
-            letter-spacing: -1px;
-            font-weight: 800;
-        }
-
-        .header p {
-            color: var(--text-muted);
-            font-size: 1.1rem;
-            margin: 0;
-        }
-
-        .tab-container {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 30px;
-            gap: 12px;
-        }
-
-        .tab-btn {
-            background-color: var(--tab-bg);
-            color: var(--text-muted);
-            border: none;
-            padding: 12px 28px;
-            font-size: 1.05rem;
-            font-weight: 700;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
+        .tab-container { display: flex; justify-content: center; margin-bottom: 30px; gap: 12px; }
+        .tab-btn { background-color: var(--tab-bg); color: var(--text-muted); border: none; padding: 12px 28px; font-size: 1.05rem; font-weight: 700; border-radius: 30px; cursor: pointer; transition: all 0.2s ease; }
         .tab-btn:hover { background-color: #cbd5e1; }
-        .tab-btn.active {
-            background-color: var(--accent);
-            color: white;
-            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
-        }
+        .tab-btn.active { background-color: var(--accent); color: white; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3); }
 
-        .filter-container {
-            display: none; 
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 35px;
-            gap: 10px;
-        }
+        .filter-container { display: none; justify-content: center; flex-wrap: wrap; margin-bottom: 35px; gap: 10px; }
+        .filter-btn { background-color: white; border: 1px solid var(--border-color); color: var(--text-muted); padding: 8px 18px; border-radius: 20px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+        .filter-btn.active { background-color: var(--primary); color: white; border-color: var(--primary); }
 
-        .filter-btn {
-            background-color: white;
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            padding: 8px 18px;
-            border-radius: 20px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
+        .dashboard-container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 35px; }
 
-        .filter-btn.active {
-            background-color: var(--primary);
-            color: white;
-            border-color: var(--primary);
-        }
-
-        .dashboard-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 35px;
-        }
-        
-        .device-card {
-            background: var(--card-bg);
-            border-radius: 18px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03), 0 2px 4px rgba(0,0,0,0.02);
-            border: 1px solid var(--border-color);
-            padding: 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .card-top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 15px;
-        }
-
+        .device-card { background: var(--card-bg); border-radius: 18px; box-shadow: 0 4px 15px rgba(0,0,0,0.03), 0 2px 4px rgba(0,0,0,0.02); border: 1px solid var(--border-color); padding: 30px; display: flex; flex-direction: column; gap: 20px; }
+        .card-top-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
         .card-meta { display: flex; gap: 8px; }
 
-        .tier-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: white;
-        }
+        .tier-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; color: white; }
         .tier-flagship { background-color: #ef4444; }
         .tier-midrange { background-color: #10b981; }
         .tier-budget { background-color: #3b82f6; }
 
-        .maker-badge {
-            font-size: 0.8rem;
-            color: #475569;
-            background: #e2e8f0;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-weight: 700;
-        }
+        .maker-badge { font-size: 0.8rem; color: #475569; background: #e2e8f0; padding: 4px 12px; border-radius: 20px; font-weight: 700; }
+        .date-badge { font-size: 0.8rem; color: var(--text-muted); background: #f1f5f9; padding: 4px 10px; border-radius: 6px; font-weight: 600; }
 
-        .date-badge {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            background: #f1f5f9;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-weight: 600;
-        }
-
-        .device-title {
-            font-size: 1.8rem;
-            font-weight: 900;
-            margin: 0;
-            color: var(--primary);
-        }
-
+        .device-title { font-size: 1.8rem; font-weight: 900; margin: 0; color: var(--primary); }
         .device-title a { color: var(--accent); font-size: 1.1rem; text-decoration: none; margin-left: 8px; }
 
-        .insight-box {
-            background-color: var(--insight-bg);
-            border: 1px solid var(--insight-border);
-            padding: 22px;
-            border-radius: 12px;
-            width: 100%;
-            box-sizing: border-box;
-        }
+        .insight-box { background-color: var(--insight-bg); border: 1px solid var(--insight-border); padding: 22px; border-radius: 12px; width: 100%; box-sizing: border-box; }
+        .insight-box strong { display: flex; align-items: center; gap: 6px; color: var(--accent); font-size: 0.95rem; font-weight: 800; margin-bottom: 6px; }
+        .insight-box p { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--primary); line-height: 1.6; }
 
-        .insight-box strong {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: var(--accent);
-            font-size: 0.95rem;
-            font-weight: 800;
-            margin-bottom: 6px;
-        }
-
-        .insight-box p {
-            margin: 0;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--primary);
-            line-height: 1.6;
-        }
-
-        .card-details-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 16px;
-            margin-top: 5px;
-        }
-
-        .detail-section {
-            background-color: #fafafa;
-            border-radius: 12px;
-            padding: 22px;
-            border: 1px solid var(--border-color);
-        }
-
-        .detail-section > strong {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 1.1rem;
-            color: var(--primary);
-            margin-bottom: 16px;
-            font-weight: 800;
-            border-bottom: 2px solid #cbd5e1;
-            padding-bottom: 8px;
-        }
-
+        .card-details-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 5px; }
+        .detail-section { background-color: #fafafa; border-radius: 12px; padding: 22px; border: 1px solid var(--border-color); }
+        .detail-section > strong { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; color: var(--primary); margin-bottom: 16px; font-weight: 800; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; }
         .detail-section > strong i { color: var(--accent); }
 
-        .sub-item-block {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 14px 18px;
-            margin-bottom: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-        }
-                .sub-item-block:last-child { margin-bottom: 0; }
-
-        .sub-title-tag {
-            display: inline-flex;
-            align-items: center;
-            background-color: #f1f5f9;
-            color: #1e293b;
-            font-size: 0.9rem;
-            font-weight: 800;
-            padding: 3px 10px;
-            border-radius: 6px;
-            border-left: 3px solid var(--accent);
-            margin-bottom: 6px;
-        }
-
-        .sub-body-text {
-            color: #475569;
-            font-size: 0.98rem;
-            padding-left: 4px;
-        }
+        .sub-item-block { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        .sub-item-block:last-child { margin-bottom: 0; }
+        .sub-title-tag { display: inline-flex; align-items: center; background-color: #f1f5f9; color: #1e293b; font-size: 0.9rem; font-weight: 800; padding: 3px 10px; border-radius: 6px; border-left: 3px solid var(--accent); margin-bottom: 6px; }
+        .sub-body-text { color: #475569; font-size: 0.98rem; padding-left: 4px; }
 
         .loading { text-align: center; font-size: 1.2rem; color: var(--text-muted); padding: 50px; }
     </style>
@@ -288,50 +108,42 @@
         let currentTab = 'latest'; 
         let currentFilter = 'all';
 
-        // 💡 [깃허브 에러 방지] 정규식 완전 제거, 순수 문자열 치환 방식으로 변경
         function formatDetailContent(rawText) {
             if (!rawText) return "정보 없음";
             
-            // 특수문자 별표(*)를 깃허브가 트집잡지 않게 split/join으로 안전하게 교체
             let clean = rawText.split('**').join('').split('*').join('•').trim();
             let lines = clean.split('•');
             let htmlResult = "";
             
-            lines.forEach(line => {
+            lines.forEach(function(line) {
                 let trimmed = line.trim();
                 if (!trimmed) return;
                 
-                if (trimmed.includes(':')) {
+                if (trimmed.indexOf(':') > -1) {
                     let parts = trimmed.split(':');
                     let subTitle = parts[0].trim();
-                    parts.shift(); // 첫 번째 요소(제목) 제거
-                    let subContent = parts.join(':').trim(); // 나머지를 다시 합침
-                    
+                    parts.shift();
+                    let subContent = parts.join(':').trim();
                     htmlResult += '<div class="sub-item-block"><div class="sub-title-tag">' + subTitle + '</div><div class="sub-body-text">' + subContent + '</div></div>';
                 } else {
                     htmlResult += '<div class="sub-item-block"><div class="sub-body-text">' + trimmed + '</div></div>';
                 }
             });
-            
             return htmlResult;
         }
-        // 💡 [깃허브 에러 방지] 괄호(USP)와 정규식 완전 제거. 오직 indexOf만 사용
+
         function parseStrategy(text) {
-            const extract = (startKey, endKey) => {
+            function extract(startKey, endKey) {
                 let startIdx = text.indexOf(startKey);
                 if (startIdx === -1) return "";
-                
                 let colonIdx = text.indexOf(":", startIdx);
                 if (colonIdx === -1) colonIdx = startIdx + startKey.length;
-                
                 let contentStart = colonIdx + 1;
                 let contentEnd = endKey ? text.indexOf(endKey, contentStart) : text.length;
-                
                 if (contentEnd === -1) contentEnd = text.length;
                 return text.substring(contentStart, contentEnd).trim();
-            };
+            }
             
-            // 괄호 없이 핵심 단어만으로 유연하게 추출
             let makerStr = extract("제조사", "모델명");
             let targetStr = extract("주요 타겟 고객층", "핵심 셀링 포인트");
             let uspStr = extract("핵심 셀링 포인트", "가격대 및 포지셔닝");
@@ -347,24 +159,37 @@
             };
         }
 
-function getTierInfo(priceText, targetText) {
-            var str1 = priceText.toLowerCase();
-            var str2 = targetText.toLowerCase();
+        // 💡 깃허브 방화벽 원천 차단: 배열, 객체 할당, 이모지 모두 제거하고 오직 숫자로만 등급 반환
+        function getTierLevelNumber(pText, tText) {
+            var str1 = pText ? pText.toLowerCase() : "";
+            var str2 = tText ? tText.toLowerCase() : "";
 
-            // 💡 1단계: if문과 || 기호를 피해, 배열과 반복문으로만 안전하게 숫자를 판별합니다.
-            function getLvl(txt) {
-                var bArr = ['보급형', '초가성비', '엔트리', '저가', 'budget'];
-                for(var i=0; i<bArr.length; i++) { if(txt.indexOf(bArr[i]) > -1) return 3; }
-                
-                var mArr = ['중급', '메인스트림', '미드', 'mid'];
-                for(var j=0; j<mArr.length; j++) { if(txt.indexOf(mArr[j]) > -1) return 2; }
-                
-                var fArr = ['플래그십', '프리미엄', '최고급', 'flagship', 'premium'];
-                for(var k=0; k<fArr.length; k++) { if(txt.indexOf(fArr[k]) > -1) return 1; }
-                
+            function checkLevel(txt) {
+                if (!txt) return 0;
+                // 플래그십 (1)
+                if (txt.indexOf('플래그십') > -1) return 1;
+                if (txt.indexOf('프리미엄') > -1) return 1;
+                if (txt.indexOf('최고급') > -1) return 1;
+                if (txt.indexOf('flagship') > -1) return 1;
+                if (txt.indexOf('premium') > -1) return 1;
+                // 중급형 (2)
+                if (txt.indexOf('중급') > -1) return 2;
+                if (txt.indexOf('메인스트림') > -1) return 2;
+                if (txt.indexOf('미드') > -1) return 2;
+                if (txt.indexOf('mid') > -1) return 2;
+                // 보급형 (3)
+                if (txt.indexOf('보급형') > -1) return 3;
+                if (txt.indexOf('초가성비') > -1) return 3;
+                if (txt.indexOf('엔트리') > -1) return 3;
+                if (txt.indexOf('저가') > -1) return 3;
+                if (txt.indexOf('budget') > -1) return 3;
                 return 0;
             }
-var level = getLvl(str1);
-            if (level === 0) { level = getLvl(str2); }
-            if (level === 0) { level = 3; }
-// 💡 2단계: '.class=' 등 방화벽이 싫어하는 문법을 숨기기 위해 데이터를 배열로 압축합니다.
+
+            var result = checkLevel(str1);
+            if (result === 0) { result = checkLevel(str2); }
+            if (result === 0) { result = 3; }
+            return result;
+        }
+
+ 
