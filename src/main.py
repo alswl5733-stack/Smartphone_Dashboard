@@ -1,496 +1,200 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>스마트폰 신제품 인사이트 대시보드</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --bg-color: #f8fafc;
-            --card-bg: #ffffff;
-            --primary: #0f172a;
-            --accent: #0284c7;
-            --insight-bg: #f0f9ff;
-            --insight-border: #bae6fd;
-            --text-main: #334155;
-            --text-muted: #64748b;
-            --border-color: #e2e8f0;
-            --tab-bg: #e2e8f0;
-        }
+import os
+import json
+import datetime
+import time
+import requests
+import urllib.parse
+from bs4 import BeautifulSoup
+import google.generativeai as genai
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
-        body {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 30px 20px;
-            line-height: 1.7;
-        }
+# 연동할 구글 스프레드시트 ID
+SPREADSHEET_ID = "1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o"
 
-        .header {
-            text-align: center;
-            margin-bottom: 35px;
-        }
+gemini_key = os.environ.get("GEMINI_API_KEY")
+gcp_creds_json = os.environ.get("GCP_CREDENTIALS")
 
-        .header h1 {
-            font-size: 2.4rem;
-            color: var(--primary);
-            margin: 0 0 10px 0;
-            letter-spacing: -1px;
-            font-weight: 800;
-        }
+if gemini_key:
+    genai.configure(api_key=gemini_key)
+    # 신제품 정찰 및 가벼운 검증용 Lite 모델
+    lite_model = genai.GenerativeModel('gemini-3.1-flash-lite')
+    # 💡 딥 다이브 분석 및 핵심 마케팅 전략 도출을 전담하는 강력한 Pro 모델
+    pro_model = genai.GenerativeModel('gemini-3.5-flash')
 
-        .header p {
-            color: var(--text-muted);
-            font-size: 1.1rem;
-            margin: 0;
-        }
+def get_sheets_service():
+    if not gcp_creds_json:
+        return None
+    creds_dict = json.loads(gcp_creds_json)
+    creds = service_account.Credentials.from_service_account_info(
+        creds_dict, scopes=['https://www.googleapis.com/auth/spreadsheets']
+    )
+    return build('sheets', 'v4', credentials=creds)
 
-        .tab-container {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 30px;
-            gap: 12px;
-        }
+def get_kst_dates():
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    
+    # 🔓 [실전 라이브 모드] 시스템의 실제 현재 한국 시간을 기준으로 작동합니다.
+    # 💡 (테스트 필요 시 datetime.datetime(2026, 7, 8, ...) 형태로 원하는 과거 날짜 주입 가능)
+    today = datetime.datetime.now(kst)
+    
+    yesterday = today - datetime.timedelta(days=1)
+    tomorrow = today + datetime.timedelta(days=1)
+    day_before_yesterday = today - datetime.timedelta(days=2) 
+    
+    return {
+        "today_str_kr": today.strftime("%Y년 %m월 %d일"),
+        "yesterday_str_kr": yesterday.strftime("%Y년 %m월 %d일"),
+        "yesterday_query": day_before_yesterday.strftime("%Y-%m-%d"), 
+        "tomorrow_query": tomorrow.strftime("%Y-%m-%d")    
+    }
 
-        .tab-btn {
-            background-color: var(--tab-bg);
-            color: var(--text-muted);
-            border: none;
-            padding: 12px 28px;
-            font-size: 1.05rem;
-            font-weight: 700;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .tab-btn:hover { background-color: #cbd5e1; }
-        .tab-btn.active {
-            background-color: var(--accent);
-            color: white;
-            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
-        }
-
-        .filter-container {
-            display: none; 
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 35px;
-            gap: 10px;
-        }
-
-        .filter-btn {
-            background-color: white;
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            padding: 8px 18px;
-            border-radius: 20px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .filter-btn.active {
-            background-color: var(--primary);
-            color: white;
-            border-color: var(--primary);
-        }
-
-        .dashboard-container {
-            max-width: 1350px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 28px;
-        }
-
-        /* 가로형 와이드 카드 */
-        .device-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
-            border: 1px solid var(--border-color);
-            display: flex;
-            overflow: hidden;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .device-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 20px -3px rgba(0,0,0,0.08);
-        }
-
-        /* 🚀 카드 왼쪽: 레이아웃 전면 수정 (시사점 박스를 타이틀 바로 아래로) */
-        .card-left {
-            width: 38%;
-            padding: 30px;
-            background-color: #fafafa;
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            gap: 16px; /* 고정 간격으로 상단에 밀착 배치 */
-        }
-
-        .card-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .tier-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: white;
-        }
-        .tier-flagship { background-color: #ef4444; }
-        .tier-midrange { background-color: #10b981; }
-        .tier-budget { background-color: #3b82f6; }
-
-        .maker-badge {
-            font-size: 0.8rem;
-            color: #475569;
-            background: #e2e8f0;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-weight: 700;
-        }
-
-        .date-badge {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            background: #f1f5f9;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-weight: 600;
-        }
-
-        .device-title {
-            font-size: 1.6rem;
-            font-weight: 800;
-            margin: 0;
-            color: var(--primary);
-            line-height: 1.3;
-        }
-
-        .device-title a {
-            color: var(--accent);
-            font-size: 1.1rem;
-            text-decoration: none;
-            margin-left: 8px;
-        }
-
-        /* 제품명 바로 아래로 수직 상승 배치된 시사점 박스 */
-        .insight-box {
-            background-color: var(--insight-bg);
-            border: 1px solid var(--insight-border);
-            padding: 20px;
-            border-radius: 12px;
-            margin-top: 5px;
-        }
-
-        .insight-box strong {
-            display: block;
-            color: var(--accent);
-            font-size: 0.95rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-        }
-
-        .insight-box p {
-            margin: 0;
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: var(--primary);
-            line-height: 1.6;
-        }
-
-        /* 카드 오른쪽: 인포그래픽 리스트 스타일 개편 */
-        .card-right {
-            width: 62%;
-            padding: 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-            justify-content: center;
-        }
-
-        .detail-section {
-            background-color: #f8fafc;
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid #f1f5f9;
-        }
-
-        .detail-section strong {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 1.05rem;
-            color: var(--primary);
-            margin-bottom: 12px;
-            font-weight: 800;
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 6px;
-        }
-
-        .detail-section strong i {
-            color: var(--accent);
-        }
-
-        /* 🧹 리스트 가독성 최적화 스타일 */
-        .detail-content {
-            font-size: 0.98rem;
-            color: var(--text-main);
-            line-height: 1.7;
-        }
-
-        /* 소항목(불릿) 디자인 고도화 */
-        .detail-item {
-            margin-bottom: 10px;
-            padding-left: 12px;
-            text-indent: -12px;
-        }
+def detect_new_releases():
+    dates = get_kst_dates()
+    print(f"📡 [1단계: 정찰] 검색망({dates['yesterday_query']} ~ {dates['tomorrow_query']}) 내의 글로벌 기사를 검사합니다...")
+    
+    search_query = f"smartphone (launch OR announcement) after:{dates['yesterday_query']} before:{dates['tomorrow_query']}"
+    encoded_query = urllib.parse.quote(search_query)
+    url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
+    
+    found_models = []
+    try:
+        response = requests.get(url, timeout=10)
+        soup = BeautifulSoup(response.content, 'xml') 
+        items = soup.find_all('item')
         
-        .detail-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .loading { text-align: center; font-size: 1.2rem; color: var(--text-muted); padding: 50px; }
-
-        @media (max-width: 950px) {
-            .device-card { flex-direction: column; }
-            .card-left, .card-right { width: 100%; box-sizing: border-box; }
-            .card-left { border-right: none; border-bottom: 1px solid var(--border-color); }
-        }
-    </style>
-</head>
-<body>
-
-    <div class="header">
-        <h1>📊 스마트폰 전략 상품기획 대시보드</h1>
-        <p>최신 동향 동기화 시점: <span id="update-date" style="font-weight: 800; color: var(--accent);">불러오는 중...</span></p>
-    </div>
-
-    <div class="tab-container">
-        <button class="tab-btn active" id="tab-latest" onclick="switchTab('latest')">🔥 최신 보고서 (당일)</button>
-        <button class="tab-btn" id="tab-history" onclick="switchTab('history')">📚 아카이브 (누적 이력)</button>
-    </div>
-
-    <div class="filter-container" id="filter-menu">
-        <button class="filter-btn active" onclick="applyFilter('all')">전체 등급</button>
-        <button class="filter-btn" onclick="applyFilter('flagship')">🌟 플래그십</button>
-        <button class="filter-btn" onclick="applyFilter('midrange')">⚖️ 중급형</button>
-        <button class="filter-btn" onclick="applyFilter('budget')">📱 보급형</button>
-    </div>
-
-    <div class="dashboard-container" id="dashboard">
-        <div class="loading"><i class="fas fa-spinner fa-spin"></i> 구글 데이터베이스를 연동하고 있습니다...</div>
-    </div>
-
-    <script>
-        const SHEET_ID = '1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o';
-        const SHEET_NAME = '스펙_누적_데이터';
-        const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
-
-        let allProducts = [];
-        let latestDate = "";
-        let currentTab = 'latest'; 
-        let currentFilter = 'all';
-
-        // 🧹 줄글 텍스트를 구조화된 HTML 인포그래픽 리스트로 자동 가공하는 고도화 함수
-        function formatDetailContent(rawText) {
-            if (!rawText) return "정보 없음";
+        for i, item in enumerate(items[:200]):
+            title = item.title.text
+            link = item.link.text
+            print(f"[{i+1}/{min(200, len(items))}] 검사 중: {title}")
             
-            // 마크다운 기호 제거 및 기본 정제
-            let clean = rawText.replace(/\*\*/g, '').replace(/\*/g, '•').trim();
-            
-            // '• ' 기호를 기준으로 문장들을 쪼개기
-            let lines = clean.split('•');
-            let htmlResult = "";
-            
-            lines.forEach(line => {
-                let trimmed = line.trim();
-                if (!trimmed) return;
+            # 루머, 컨셉 단계 기사는 1차 컷탈락
+            if any(w in title.lower() for w in ['rumor', 'concept', 'reportedly']):
+                continue
                 
-                // 항목명에 볼드 처리를 하고 다음 내용을 줄바꿈 처리하기 위한 다이나믹 변환
-                // 예: "가격대: 150달러" -> "<strong>• 가격대:</strong> <br>150달러"
-                if (trimmed.includes(':')) {
-                    let parts = trimmed.split(':');
-                    let title = parts[0].trim();
-                    let content = parts.slice(1).join(':').trim();
-                    htmlResult += `<div class="detail-item"><span style="font-weight:800; color:#0f172a;">• ${title}:</span> <span style="display:block; margin-top:3px; padding-left:14px; color:#475569;">${content}</span></div>`;
-                } else {
-                    htmlResult += `<div class="detail-item" style="color:#475569;">• ${trimmed}</div>`;
-                }
-            });
+            try:
+                art_resp = requests.get(link, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+                art_soup = BeautifulSoup(art_resp.text, 'html.parser')
+                article_text = "\n".join([p.text for p in art_soup.find_all('p')[:3]])
+            except Exception:
+                article_text = "본문 수집 불가"
+
+            check_prompt = f"""
+            당신은 수석 모바일 상품기획자의 스마트폰 신제품 감별사입니다.
             
-            return htmlResult;
-        }
-
-        function parseStrategy(text) {
-            const extract = (startWord, endWord) => {
-                let regex = endWord 
-                    ? new RegExp(startWord + "\\s*:\\s*([\\s\\S]*?)(?=" + endWord + ":|$)")
-                    : new RegExp(startWord + "\\s*:\\s*([\\s\\S]*)");
-                const match = text.match(regex);
-                return match ? match[1].trim() : "";
-            };
+            기사 제목: '{title}'
+            초반부: '{article_text}'
             
-            return {
-                maker: extract("제조사", "모델명").replace(/[•\*]/g, '').trim(), 
-                target: formatDetailContent(extract("주요 타겟 고객층", "핵심 셀링 포인트\\(USP\\)")),
-                usp: formatDetailContent(extract("핵심 셀링 포인트\\(USP\\)", "가격대 및 포지셔닝")),
-                price: formatDetailContent(extract("가격대 및 포지셔닝", "제품 인사이트 요약\\(1줄\\)")),
-                insight: extract("제품 인사이트 요약\\(1줄\\)", null).replace(/[•\*]/g, '').trim()
-            };
-        }
+            이 기사가 스마트폰 신제품의 공식 발표일이나 출시 행사를 다루고 있나요?
 
-        function getTierInfo(priceText, targetText) {
-            const combined = (priceText + " " + targetText).toLowerCase();
-            if (combined.includes('보급형') || combined.includes('초가성비') || combined.includes('엔트리') || combined.includes('저가') || combined.includes('budget')) {
-                return { id: 'budget', class: 'tier-budget', label: '📱 보급형', rank: 3 };
-            }
-            if (combined.includes('중급') || combined.includes('메인스트림') || combined.includes('미드') || combined.includes('mid')) {
-                return { id: 'midrange', class: 'tier-midrange', label: '⚖️ 중급형', rank: 2 };
-            }
-            if (combined.includes('플래그십') || combined.includes('프리미엄') || combined.includes('최고급') || combined.includes('flagship') || combined.includes('premium')) {
-                return { id: 'flagship', class: 'tier-flagship', label: '🌟 플래그십', rank: 1 };
-            }
-            return { id: 'budget', class: 'tier-budget', label: '📱 보급형', rank: 3 };
-        }
+            <유연한 판별 기준>
+            1. 출시 행사를 시청하는 법(How to watch), 오늘 글로벌 런칭 이벤트(Global launch event today) 등은 제품이 오늘 공개된다는 팩트이므로 인정합니다.
+            2. [지각 출시 필터링] 과거에 이미 출시된 폰이 특정 국가에 뒤늦게 런칭하는 기사는 무조건 '아니오'로 답하세요.
+            3. 예정(Expected), 유출(Leak), 루머(Rumor) 등 아직 발표되지 않은 소식은 '아니오'로 답하세요.
+            4. 기사 내용이 제품의 공식적인 최초 등장이나 발표를 다룬다면 인정하세요.
 
-        window.switchTab = function(tabName) {
-            currentTab = tabName;
-            document.getElementById('tab-latest').classList.remove('active');
-            document.getElementById('tab-history').classList.remove('active');
-            document.getElementById('tab-' + tabName).classList.add('active');
-
-            const filterMenu = document.getElementById('filter-menu');
-            if (tabName === 'history') {
-                filterMenu.style.display = 'flex';
-                applyFilter('all'); 
-            } else {
-                filterMenu.style.display = 'none';
-                renderCards(); 
-            }
-        };
-
-        window.applyFilter = function(tierId) {
-            currentFilter = tierId;
-            const btns = document.querySelectorAll('.filter-btn');
-            btns.forEach(btn => btn.classList.remove('active'));
-            if(event && event.target.classList.contains('filter-btn')) event.target.classList.add('active');
-            renderCards();
-        };
-
-        function renderCards() {
-            const dashboard = document.getElementById('dashboard');
-            dashboard.innerHTML = '';
+            위 기준에 미달하면 '아니오'라고 답하고, 신제품이 맞다면 모델명만 정확히 적으세요. '예'나 다른 문장은 절대 포함하지 말고 오직 결과값(모델명)만 출력하세요.
+            """
             
-            let displayList = [];
+            ai_response = lite_model.generate_content(check_prompt).text.strip()
+            
+            # 군더더기 답변 접두사 완전 방어
+            cleaned_name = ai_response.replace("예,", "").replace("Yes,", "").replace("예", "").replace("Yes", "").strip()
+            
+            if "아니오" not in ai_response and len(cleaned_name) > 2:
+                model_name = cleaned_name
+                print(f"  ㄴ 🚨 신제품/출시 소식 탐지: {model_name}")
+                found_models.append({"model_name": model_name, "primary_url": link, "intro_text": article_text})
+                
+            time.sleep(5) 
+            
+        return found_models
+    except Exception as e:
+        print(f"⚠️ 정찰 에러 발생: {e}")
+        return []
 
-            if (currentTab === 'latest') {
-                displayList = allProducts.filter(p => p.date === latestDate);
-                displayList.sort((a, b) => a.tier.rank - b.tier.rank);
-            } else {
-                displayList = currentFilter === 'all' ? [...allProducts] : allProducts.filter(p => p.tier.id === currentFilter);
-                displayList.sort((a, b) => b.date.localeCompare(a.date));
-            }
+def fetch_usp_and_target(model_name, intro_text):
+    print(f"🧠 [{model_name}] 기사 심층 분석 및 마케팅 전략 도출 중 (Pro 모델 가동)...")
+    
+    raw_query = f'"{model_name}" (launch OR feature OR market OR target OR premium OR price OR strategy)'
+    search_query = urllib.parse.quote(raw_query)
+    url = f"https://news.google.com/rss/search?q={search_query}&hl=en-US&gl=US&ceid=US:en"
+    combined_text = intro_text + "\n"
+    
+    try:
+        response = requests.get(url, timeout=10)
+        soup = BeautifulSoup(response.content, 'xml')
+        items = soup.find_all('item')
+        
+        # 💡 정확도를 위해 긁어오는 기사 풀을 4개로 늘리고, li 등 상세 태그까지 최대 10,000자 스캔
+        for item in items[:4]:
+            try:
+                res = requests.get(item.link.text, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+                art_soup = BeautifulSoup(res.text, 'html.parser')
+                elements = art_soup.find_all(['p', 'h1', 'h2', 'li'])
+                extracted_texts = [el.text.strip() for el in elements if len(el.text.strip()) > 10]
+                combined_text += "\n".join(extracted_texts[:40]) + "\n"
+            except: pass
+            time.sleep(3) 
+            
+        usp_prompt = f"""
+        수집된 정보 (최대 10,000자): {combined_text[:10000]}
+        
+        위 글로벌 출시 기사들을 바탕으로 '{model_name}'의 마케팅 전략 핵심 요소를 추출해 주세요.
+        당신은 수석 모바일 상품기획자입니다. 철저히 비즈니스 관점에서 분석하세요.
+        
+        출력 형식:
+        제조사:
+        모델명: {model_name}
+        주요 타겟 고객층: 
+        핵심 셀링 포인트(USP): 
+        가격대 및 포지셔닝: 
+        제품 인사이트 요약(1줄): 
+        """
+        result = pro_model.generate_content(usp_prompt).text
+        time.sleep(5)
+        return result
+    except Exception as e:
+        return f"전략 분석 실패: {e}"
 
-            if (displayList.length === 0) {
-                dashboard.innerHTML = '<div class="loading">해당 조건에 부합하는 분석 데이터가 없습니다.</div>';
-                return;
-            }
+def save_to_cumulative_sheet(model_name, strategy_text, url):
+    service = get_sheets_service()
+    if not service: return
+    try:
+        # 🔓 [실전 라이브 모드] 시트 기록 시점의 현재 KST 한국 날짜를 도장 찍어줍니다.
+        kst = datetime.timezone(datetime.timedelta(hours=9))
+        current_date = datetime.datetime.now(kst).strftime("%Y-%m-%d")
+        
+        service.spreadsheets().values().append(
+            spreadsheetId=SPREADSHEET_ID, range="스펙_누적_데이터!A:F",
+            valueInputOption="USER_ENTERED", body={'values': [[current_date, "Google News Deep Dive", model_name, strategy_text, url]]}
+        ).execute()
+    except Exception as e: 
+        print(f"⚠️ 시트 저장 에러: {e}")
 
-            displayList.forEach(product => {
-                const card = document.createElement('div');
-                card.className = 'device-card';
-                card.innerHTML = `
-                    <div class="card-left">
-                        <div class="card-meta">
-                            <span class="maker-badge"><i class="fas fa-industry"></i> ${product.maker}</span>
-                            <span class="tier-badge ${product.tier.class}">${product.tier.label}</span>
-                            <span class="date-badge"><i class="far fa-calendar-alt"></i> ${product.date}</span>
-                        </div>
-                        <h2 class="device-title">
-                            ${product.modelName} 
-                            <a href="${product.url}" target="_blank" title="출시 원문 기사 링크"><i class="fas fa-external-link-alt"></i></a>
-                        </h2>
-                        <div class="insight-box">
-                            <strong><i class="fas fa-quote-left"></i> 기획자 시사점</strong>
-                            <p>${product.insight}</p>
-                        </div>
-                    </div>
-                    
-                    <div class="card-right">
-                        <div class="detail-section">
-                            <strong><i class="fas fa-bullseye"></i> 주요 타겟 고객층</strong>
-                            <div class="detail-content">${product.target}</div>
-                        </div>
-                        <div class="detail-section">
-                            <strong><i class="fas fa-gem"></i> 핵심 셀링 포인트 (USP)</strong>
-                            <div class="detail-content">${product.usp}</div>
-                        </div>
-                        <div class="detail-section">
-                            <strong><i class="fas fa-tags"></i> 가격대 및 포지셔닝 전략</strong>
-                            <div class="detail-content">${product.price}</div>
-                        </div>
-                    </div>
-                `;
-                dashboard.appendChild(card);
-            });
-        }
-
-        fetch(URL)
-            .then(res => res.text())
-            .then(text => {
-                const jsonStr = text.substring(47).slice(0, -2);
-                const json = JSON.parse(jsonStr);
-                const rows = json.table.rows;
-
-                rows.forEach(row => {
-                    if (!row.c[0] || !row.c[2] || !row.c[3]) return;
-                    
-                    let dateStr = row.c[0].f ? row.c[0].f : row.c[0].v.toString();
-
-                    if (dateStr.includes('Date')) {
-                        const numbers = dateStr.match(/\d+/g);
-                        if (numbers && numbers.length >= 3) {
-                            dateStr = `${numbers[0]}-${String(Number(numbers[1]) + 1).padStart(2, '0')}-${String(Number(numbers[2])).padStart(2, '0')}`;
-                        }
-                    }
-                    dateStr = dateStr.trim();
-                    
-                    const modelName = row.c[2].v; 
-                    const strategyText = row.c[3].v; 
-                    const newsUrl = row.c[4] ? row.c[4].v : '#'; 
-
-                    const details = parseStrategy(strategyText);
-                    const tier = getTierInfo(details.price, details.target);
-
-                    if (dateStr > latestDate) latestDate = dateStr;
-
-                    allProducts.push({
-                        date: dateStr,
-                        modelName: modelName,
-                        url: newsUrl,
-                        ...details,
-                        tier: tier
-                    });
-                });
-
-                document.getElementById('update-date').innerText = latestDate;
-                renderCards();
-            })
-            .catch(error => {
-                console.error("데이터 동기화 실패:", error);
-                document.getElementById('dashboard').innerHTML = '<div class="loading" style="color:#ef4444;">시트 데이터 로드에 실패했습니다. 공유 권한 설정을 확인해 주세요.</div>';
-            });
-    </script>
-</body>
-</html>
+if __name__ == "__main__":
+    current_dates = get_kst_dates()
+    print(f"\n[{current_dates['today_str_kr']}] 🚀 글로벌 스마트폰 신제품 분석 파이프라인 가동 시작!")
+    
+    final_target_models = detect_new_releases()
+    
+    if final_target_models:
+        print(f"\n총 {len(final_target_models)}건의 신규 라인업 마케팅 전략 딥 다이브를 시작합니다.")
+        
+        # 💡 동일 런타임(하루에 한 번 도는 동안) 내에서의 똑같은 기기 중복 분석 방지용 장치
+        analyzed_models = set()
+        
+        for device in final_target_models:
+            clean_name = device['model_name'].strip().lower()
+            if clean_name in analyzed_models:
+                continue
+            analyzed_models.add(clean_name)
+            
+            strategy_info = fetch_usp_and_target(device['model_name'], device['intro_text'])
+            print(f"  ㄴ {device['model_name']} 분석 완료")
+            save_to_cumulative_sheet(device['model_name'], strategy_info, device['primary_url'])
+            print(f"✔️ {device['model_name']} 기획 전략 시트 반영 완료")
+        
+        print("\n✅ 모든 상품기획 파이프라인 처리가 성공적으로 완료되었습니다!")
+    else:
+        print("\n✅ 시스템 정상 작동: 오늘 새롭게 감지된 스마트폰 신제품 소식이 없습니다.")
