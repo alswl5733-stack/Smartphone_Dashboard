@@ -231,5 +231,51 @@
             margin-bottom: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         }
-        
+                .sub-item-block:last-child { margin-bottom: 0; }
+
+        .sub-title-tag {
+            display: inline-flex;
+            align-items: center;
+            background-color: #f1f5f9;
+            color: #1e293b;
+            font-size: 0.9rem;
+            font-weight: 800;
+            padding: 3px 10px;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent);
+            margin-bottom: 6px;
+        }
+
+        .sub-body-text {
+            color: #475569;
+            font-size: 0.98rem;
+            padding-left: 4px;
+        }
+
+        .loading { text-align: center; font-size: 1.2rem; color: var(--text-muted); padding: 50px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>📊 스마트폰 전략 상품기획 대시보드</h1>
+        <p>최신 동향 동기화 시점: <span id="update-date" style="font-weight: 800; color: var(--accent);">불러오는 중...</span></p>
+    </div>
+
+    <div class="tab-container">
+        <button class="tab-btn active" id="tab-latest" onclick="switchTab('latest')">🔥 최신 보고서 (당일)</button>
+        <button class="tab-btn" id="tab-history" onclick="switchTab('history')">📚 아카이브 (누적 이력)</button>
+    </div>
+
+    <div class="filter-container" id="filter-menu">
+        <button class="filter-btn active" onclick="applyFilter('all')">전체 등급</button>
+        <button class="filter-btn" onclick="applyFilter('flagship')">🌟 플래그십</button>
+        <button class="filter-btn" onclick="applyFilter('midrange')">⚖️ 중급형</button>
+        <button class="filter-btn" onclick="applyFilter('budget')">📱 보급형</button>
+    </div>
+
+    <div class="dashboard-container" id="dashboard">
+        <div class="loading"><i class="fas fa-spinner fa-spin"></i> 구글 데이터베이스를 연동하고 있습니다...</div>
+    </div>
+
         
