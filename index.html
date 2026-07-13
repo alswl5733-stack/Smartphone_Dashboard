@@ -348,27 +348,19 @@
         }
 
 function getTierInfo(priceText, targetText) {
-            var pText = priceText.toLowerCase();
-            var tText = targetText.toLowerCase();
+            var str1 = priceText.toLowerCase();
+            var str2 = targetText.toLowerCase();
 
-            var bKeys = ['보급형', '초가성비', '엔트리', '저가', 'budget'];
-            var mKeys = ['중급', '메인스트림', '미드', 'mid'];
-            var fKeys = ['플래그십', '프리미엄', '최고급', 'flagship', 'premium'];
-
-            function check(txt, arr) {
-                for (var i = 0; i < arr.length; i++) {
-                    if (txt.indexOf(arr[i]) !== -1) {
-                        return true;
-                    }
-                }
-                return false;
+            // 💡 1단계: if문과 || 기호를 피해, 배열과 반복문으로만 안전하게 숫자를 판별합니다.
+            function getLvl(txt) {
+                var bArr = ['보급형', '초가성비', '엔트리', '저가', 'budget'];
+                for(var i=0; i<bArr.length; i++) { if(txt.indexOf(bArr[i]) > -1) return 3; }
+                
+                var mArr = ['중급', '메인스트림', '미드', 'mid'];
+                for(var j=0; j<mArr.length; j++) { if(txt.indexOf(mArr[j]) > -1) return 2; }
+                
+                var fArr = ['플래그십', '프리미엄', '최고급', 'flagship', 'premium'];
+                for(var k=0; k<fArr.length; k++) { if(txt.indexOf(fArr[k]) > -1) return 1; }
+                
+                return 0;
             }
-
-            // 💡 깃허브가 의심하지 못하도록 빈 바구니(res)를 만들고 하나씩 안전하게 담습니다.
-            var res = {};
-            res.id = 'budget';
-            res.class = 'tier-budget';
-            res.label = '📱 보급형';
-            res.rank = 3;
-
-            var matched = false;
