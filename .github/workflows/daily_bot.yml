@@ -1,29 +1,32 @@
-name: Smartphone Insight Automation Bot
+name: Daily IT News Bot
 
 on:
   schedule:
-    - cron: '30 22 * * *' # UTC 기준 22시 30분 = 한국 시간 오전 7시 30분
-  workflow_dispatch:
+    # 한국 시간 기준 매일 오전 8시 작동 (UTC 시간 기준 23:00)
+    - cron: '0 23 * * *'
+  workflow_dispatch: # 수동 실행 버튼 유지
 
 jobs:
-  run-automation:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-    - name: 저장소 코드 가져오기
-      uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-    - name: 파이썬 환경 세팅
-      uses: actions/setup-python@v5
+    - name: Set up Python
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: '3.9'
 
-    - name: 필수 라이브러리 설치
+    - name: Install dependencies
       run: |
-        pip install requests beautifulsoup4 lxml google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client google-generativeai
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
-    - name: 자동화 엔진 가동
+    - name: Run main script
       env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-      run: |
-        python src/main.py
+        # 깃허브 Secrets에 등록한 API 키와 서비스 계정 정보를 환경변수로 전달
+        API_KEY: ${{ secrets.API_KEY }}
+        GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      run: python src/main.py
