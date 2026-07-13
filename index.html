@@ -347,4 +347,9 @@
             };
         }
 
+       function getTierInfo(priceText, targetText) {
+            const priceLower = priceText.toLowerCase();
+            const targetLower = targetText.toLowerCase();
 
+            if (priceLower.includes('보급형') || priceLower.includes('초가성비') || priceLower.includes('엔트리') || priceLower.includes('저가') || priceLower.includes('budget')) {
+                return { id: 'budget', class: 'tier-budget', label: '📱 보급형', rank: 3 };
