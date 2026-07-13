@@ -1,3 +1,21 @@
+import smtplib
+from email.mime.text import MIMEText
+
+# 💡 이메일 발송 함수 추가
+def send_email_report(report_content):
+    sender = "alswl5733@gmail.com" # 디렉터님의 이메일
+    password = "tlto wxao oqzs nhwc"   # 구글 앱 비밀번호 (아래 팁 참조)
+    recipient = "your_email@gmail.com"
+    
+    msg = MIMEText(report_content)
+    msg['Subject'] = "[자동화] 신제품 신속 분석 리포트"
+    msg['From'] = sender
+    msg['To'] = recipient
+    
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        server.login(sender, password)
+        server.sendmail(sender, recipient, msg.as_string())
+
 import os
 import json
 import datetime
@@ -197,3 +215,15 @@ if __name__ == "__main__":
         print("\n✅ 모든 상품기획 파이프라인 처리가 성공적으로 완료되었습니다!")
     else:
         print("\n✅ 시스템 정상 작동: 오늘 새롭게 감지된 스마트폰 신제품 소식이 없습니다.")
+        
+        email_body = "오늘의 신제품 분석 리포트입니다.\n\n"
+        for device in final_target_models:
+            # 💡 우리가 원하는 4가지 정보만 쏙쏙 골라서 메일 내용 작성
+            email_body += f"- 모델명: {device['model_name']}\n"
+            email_body += f"- 제조사: {device['maker']}\n"
+            email_body += f"- 스마트폰 레벨: {device['tier']['lbl']}\n"
+            email_body += f"- 기획자 시사점: {device['insight']}\n"
+            email_body += "--------------------------\n"
+        
+        # 메일 발송 실행
+        send_email_report(email_body)
