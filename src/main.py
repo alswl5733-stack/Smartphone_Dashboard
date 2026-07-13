@@ -198,8 +198,11 @@ if __name__ == "__main__":
     if final_target_models:
         print(f"\n총 {len(final_target_models)}건의 신규 라인업 마케팅 전략 딥 다이브를 시작합니다.")
         
-        # 💡 동일 런타임(하루에 한 번 도는 동안) 내에서의 똑같은 기기 중복 분석 방지용 장치
         analyzed_models = set()
+        
+        # 💡 메일에 담을 내용들을 차곡차곡 모아둘 빈 바구니 준비
+        email_body = f"안녕하세요 디렉터님, 오늘({current_dates['today_str_kr']}) 탐지된 신제품 분석 리포트입니다.\n\n"
+        email_body += "=========================================\n\n"
         
         for device in final_target_models:
             clean_name = device['model_name'].strip().lower()
@@ -207,23 +210,54 @@ if __name__ == "__main__":
                 continue
             analyzed_models.add(clean_name)
             
+            # Pro 모델이 심층 분석한 결과물 가져오기 (이 안에 제조사, 시사점 등이 다 줄글로 들어있습니다)
             strategy_info = fetch_usp_and_target(device['model_name'], device['intro_text'])
+            
             print(f"  ㄴ {device['model_name']} 분석 완료")
             save_to_cumulative_sheet(device['model_name'], strategy_info, device['primary_url'])
             print(f"✔️ {device['model_name']} 기획 전략 시트 반영 완료")
+            
+            # 💡 [핵심 해결책] 텍스트 내부에서 원하는 항목만 쏙쏙 끄집어내는 안전 장치
+            def parse_field(text, keyword):
+                for line in text.split('\n'):
+                    if keyword in line:
+                        return line.replace(keyword, "").replace(":", "").strip()
+                return "정보 미확인"
+
+            maker_val = parse_field(strategy_info, "제조사")
+            insight_val = parse_field(strategy_info, "제품 인사이트 요약(1줄)")
+            if insight_val == "정보 미확인":
+                insight_val = parse_field(strategy_info, "제품 인사이트 요약")
+
+            # 대시보드와 동일한 기준으로 메일용 스마트폰 레벨 판정
+            price_content = parse_field(strategy_info, "가격대 및 포지셔닝")
+            target_content = parse_field(strategy_info, "주요 타겟 고객층")
+            txt_lower = (price_content + " " + target_content).lower()
+            
+            tier_val = "📱 보급형"
+            if any(w in txt_lower for w in ['플래그십', '프리미엄', '최고급', 'flagship', 'premium']):
+                tier_val = "🌟 플래그십"
+            if any(w in txt_lower for w in ['중급', '메인스트림', '미드', 'mid']):
+                tier_val = "⚖️ 중급형"
+            if any(w in txt_lower for w in ['보급형', '엔트리', '초가성비', '저가', 'budget']):
+                tier_val = "📱 보급형"
+
+            # 메일 본문에 가독성 있게 꽂아넣기
+            email_body += f"📱 모델명: {device['model_name']}\n"
+            email_body += f"🏭 제조사: {maker_val}\n"
+            email_body += f"📊 스마트폰 레벨: {tier_val}\n"
+            email_body += f"💡 기획자 시사점: {insight_val}\n"
+            email_body += f"🔗 원문 뉴스 링크: {device['primary_url']}\n"
+            email_body += "\n=========================================\n\n"
+        
+        # 🚀 모든 기기 분석이 끝나면 완성된 리포트를 메일로 다이렉트 발송!
+        try:
+            print("✉️ 디렉터님 메일함으로 리포트 발송 중...")
+            send_email_report(email_body)
+            print("✅ 메일 발송 성공!")
+        except Exception as mail_err:
+            print(f"⚠️ 메일 발송 단계 에러: {mail_err}")
         
         print("\n✅ 모든 상품기획 파이프라인 처리가 성공적으로 완료되었습니다!")
     else:
         print("\n✅ 시스템 정상 작동: 오늘 새롭게 감지된 스마트폰 신제품 소식이 없습니다.")
-        
-        email_body = "오늘의 신제품 분석 리포트입니다.\n\n"
-        for device in final_target_models:
-            # 💡 우리가 원하는 4가지 정보만 쏙쏙 골라서 메일 내용 작성
-            email_body += f"- 모델명: {device['model_name']}\n"
-            email_body += f"- 제조사: {device['maker']}\n"
-            email_body += f"- 스마트폰 레벨: {device['tier']['lbl']}\n"
-            email_body += f"- 기획자 시사점: {device['insight']}\n"
-            email_body += "--------------------------\n"
-        
-        # 메일 발송 실행
-        send_email_report(email_body)
