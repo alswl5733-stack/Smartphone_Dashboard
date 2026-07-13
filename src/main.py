@@ -5,7 +5,7 @@ from email.mime.text import MIMEText
 def send_email_report(report_content):
     sender = "alswl5733@gmail.com" # 디렉터님의 이메일
     password = "tlto wxao oqzs nhwc"   # 구글 앱 비밀번호 (아래 팁 참조)
-    recipient = "your_email@gmail.com"
+    recipient = "minji.kim@lgdisplay.com"
     
     msg = MIMEText(report_content)
     msg['Subject'] = "[자동화] 신제품 신속 분석 리포트"
