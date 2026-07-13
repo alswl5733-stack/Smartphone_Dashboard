@@ -278,4 +278,42 @@
         <div class="loading"><i class="fas fa-spinner fa-spin"></i> 구글 데이터베이스를 연동하고 있습니다...</div>
     </div>
 
+    <script>
+        const SHEET_ID = '1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o';
+        const SHEET_NAME = '스펙_누적_데이터';
+        const URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=' + encodeURIComponent(SHEET_NAME);
+
+        let allProducts = [];
+        let latestDate = "";
+        let currentTab = 'latest'; 
+        let currentFilter = 'all';
+
+        // 💡 [깃허브 에러 방지] 정규식 완전 제거, 순수 문자열 치환 방식으로 변경
+        function formatDetailContent(rawText) {
+            if (!rawText) return "정보 없음";
+            
+            // 특수문자 별표(*)를 깃허브가 트집잡지 않게 split/join으로 안전하게 교체
+            let clean = rawText.split('**').join('').split('*').join('•').trim();
+            let lines = clean.split('•');
+            let htmlResult = "";
+            
+            lines.forEach(line => {
+                let trimmed = line.trim();
+                if (!trimmed) return;
+                
+                if (trimmed.includes(':')) {
+                    let parts = trimmed.split(':');
+                    let subTitle = parts[0].trim();
+                    parts.shift(); // 첫 번째 요소(제목) 제거
+                    let subContent = parts.join(':').trim(); // 나머지를 다시 합침
+                    
+                    htmlResult += '<div class="sub-item-block"><div class="sub-title-tag">' + subTitle + '</div><div class="sub-body-text">' + subContent + '</div></div>';
+                } else {
+                    htmlResult += '<div class="sub-item-block"><div class="sub-body-text">' + trimmed + '</div></div>';
+                }
+            });
+            
+            return htmlResult;
+        }
+
         
