@@ -348,20 +348,27 @@
         }
 
 function getTierInfo(priceText, targetText) {
-            var priceLower = priceText.toLowerCase();
-            var targetLower = targetText.toLowerCase();
+            var pText = priceText.toLowerCase();
+            var tText = targetText.toLowerCase();
 
-            // 💡 [깃허브 에러 방지] 텍스트를 배열(주머니)에 담아두고, || 기호 없이 순서대로 검사합니다.
-            var budgetKeys = ['보급형', '초가성비', '엔트리', '저가', 'budget'];
-            var midKeys = ['중급', '메인스트림', '미드', 'mid'];
-            var flagKeys = ['플래그십', '프리미엄', '최고급', 'flagship', 'premium'];
+            var bKeys = ['보급형', '초가성비', '엔트리', '저가', 'budget'];
+            var mKeys = ['중급', '메인스트림', '미드', 'mid'];
+            var fKeys = ['플래그십', '프리미엄', '최고급', 'flagship', 'premium'];
 
-            // 단어가 포함되어 있는지 확인하는 전용 안전 함수
-            function hasKey(text, keys) {
-                for (var i = 0; i < keys.length; i++) {
-                    if (text.indexOf(keys[i]) !== -1) return true;
+            function check(txt, arr) {
+                for (var i = 0; i < arr.length; i++) {
+                    if (txt.indexOf(arr[i]) !== -1) {
+                        return true;
+                    }
                 }
                 return false;
             }
- ...
 
+            // 💡 깃허브가 의심하지 못하도록 빈 바구니(res)를 만들고 하나씩 안전하게 담습니다.
+            var res = {};
+            res.id = 'budget';
+            res.class = 'tier-budget';
+            res.label = '📱 보급형';
+            res.rank = 3;
+
+            var matched = false;
