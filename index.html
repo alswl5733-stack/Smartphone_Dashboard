@@ -213,3 +213,22 @@ window.switchTab = function(tabName) {
             if(event && event.target.classList.contains('filter-btn')) event.target.classList.add('active');
             renderCards();
         };
+
+        function renderCards() {
+            const dashboard = document.getElementById('dashboard');
+            dashboard.innerHTML = '';
+            
+            let displayList = [];
+
+            if (currentTab === 'latest') {
+                displayList = allProducts.filter(function(p) { return p.date === latestDate; });
+                displayList.sort(function(a, b) { return a.tier.rank - b.tier.rank; });
+            } else {
+                displayList = currentFilter === 'all' ? [...allProducts] : allProducts.filter(function(p) { return p.tier.id === currentFilter; });
+                displayList.sort(function(a, b) { return b.date.localeCompare(a.date); });
+            }
+
+            if (displayList.length === 0) {
+                dashboard.innerHTML = '<div class="loading">해당 조건에 부합하는 분석 데이터가 없습니다.</div>';
+                return;
+            }
