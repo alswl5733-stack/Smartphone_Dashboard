@@ -3,7 +3,7 @@ name: daily_bot
 on:
   schedule:
     # 영국 시간 밤 11시 = 한국 시간 오전 8시 정각 자동 실행
-    - cron: '0 23 * * *'
+    - cron: '30 1 * * *'
   workflow_dispatch: # 직접 실행 버튼 활성화
 
 jobs:
