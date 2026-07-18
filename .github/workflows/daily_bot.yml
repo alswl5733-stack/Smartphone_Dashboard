@@ -2,7 +2,7 @@ name: daily_bot
 
 on:
   schedule:
-    - cron: '30 15 * * *'
+    - cron: '30 18 * * *'
   workflow_dispatch:
 
 jobs:
