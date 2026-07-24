@@ -201,7 +201,7 @@ if __name__ == "__main__":
         
         analyzed_models = set()
         
-        # 💡 HTML 메일 본문 구성 시작
+        # HTML 메일 본문 구성
         dashboard_url = "https://script.google.com/macros/s/AKfycbwV2wRhXwCYWjn9kkoglZGkMcensvR_cvzBOO76jG-uJ9Egoi8BMaOC4p_ueGJppEA/exec"
         
         email_body = f"""
@@ -210,7 +210,7 @@ if __name__ == "__main__":
             <hr style="border: 0; border-top: 2px solid #0284c7; margin: 20px 0;">
         """
         
- for device in final_target_models:
+        for device in final_target_models:
             clean_name = device['model_name'].strip().lower()
             if clean_name in analyzed_models:
                 continue
@@ -222,45 +222,38 @@ if __name__ == "__main__":
             save_to_cumulative_sheet(device['model_name'], strategy_info, device['primary_url'])
             print(f"✔️ {device['model_name']} 기획 전략 시트 반영 완료")
             
-# 💡 [마크다운/별표 **** 완전 세척 엔진]
-            def parse_field(text, keyword):
-                lines = text.split('\n')
-                for i, line in enumerate(lines):
-                    if keyword in line:
-                        # 별표(*), 샵(#), 콜론(:), 키워드를 제거하여 pure text만 추출
-                        cleaned = line.replace(keyword, "").replace(":", "").replace("*", "").replace("#", "").strip()
-                        if cleaned:
-                            return cleaned
-                        elif i + 1 < len(lines):
-
-
+            # 파싱 및 정보 추출
             maker_val = parse_field(strategy_info, "제조사")
             insight_val = parse_field(strategy_info, "제품 인사이트 요약(1줄)")
             if insight_val == "정보 미확인":
                 insight_val = parse_field(strategy_info, "제품 인사이트 요약")
 
-            # 대시보드와 동일한 기준으로 메일용 스마트폰 레벨 판정
             price_content = parse_field(strategy_info, "가격대 및 포지셔닝")
-            target_content = parse_field(strategy_info, "주요 타겟 고객층")
-            txt_lower = (price_content + " " + target_content).lower()
+            txt_lower = price_content.lower()
             
             tier_val = "📱 보급형"
-            if any(w in txt_lower for w in ['플래그십', '프리미엄', '최고급', 'flagship', 'premium']):
-                tier_val = "🌟 플래그십"
-            if any(w in txt_lower for w in ['중급', '메인스트림', '미드', 'mid']):
-                tier_val = "⚖️ 중급형"
             if any(w in txt_lower for w in ['보급형', '엔트리', '초가성비', '저가', 'budget']):
                 tier_val = "📱 보급형"
+            elif any(w in txt_lower for w in ['중급', '메인스트림', '미드', 'mid']):
+                tier_val = "⚖️ 중급형"
+            elif any(w in txt_lower for w in ['플래그십', '프리미엄', '최고급', 'flagship', 'premium']):
+                tier_val = "🌟 플래그십"
 
-            # 메일 본문에 가독성 있게 꽂아넣기
-            email_body += f"📱 모델명: {device['model_name']}\n"
-            email_body += f"🏭 제조사: {maker_val}\n"
-            email_body += f"📊 스마트폰 레벨: {tier_val}\n"
-            email_body += f"💡 기획자 시사점: {insight_val}\n"
-            email_body += f"🔗 원문 뉴스 링크: {device['primary_url']}\n"
-            email_body += "\n=========================================\n\n"
+            email_body += f"""
+            <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
+                <p style="margin: 5px 0;"><strong>📱 모델명:</strong> {device['model_name']}</p>
+                <p style="margin: 5px 0;"><strong>🏭 제조사:</strong> {maker_val}</p>
+                <p style="margin: 5px 0;"><strong>📊 스마트폰 레벨:</strong> {tier_val}</p>
+                <p style="margin: 5px 0;"><strong>💡 기획자 시사점:</strong> {insight_val}</p>
+            </div>
+            """
         
-        # 🚀 모든 기기 분석이 끝나면 완성된 리포트를 메일로 다이렉트 발송!
+        email_body += f"""
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+            <p style="font-size: 1.05rem;">👉 <a href="{dashboard_url}" target="_blank" style="color: #0284c7; font-weight: bold; text-decoration: underline;">스마트폰 전략 상품기획 대시보드 바로가기</a></p>
+        </div>
+        """
+        
         try:
             print("✉️ 디렉터님 메일함으로 리포트 발송 중...")
             send_email_report(email_body)
