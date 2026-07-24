@@ -222,12 +222,12 @@ if __name__ == "__main__":
             save_to_cumulative_sheet(device['model_name'], strategy_info, device['primary_url'])
             print(f"✔️ {device['model_name']} 기획 전략 시트 반영 완료")
             
-            # 💡 [핵심 해결책] 텍스트 내부에서 원하는 항목만 쏙쏙 끄집어내는 안전 장치
+# 💡 [마크다운/별표 **** 완전 세척 엔진]
             def parse_field(text, keyword):
-                for line in text.split('\n'):
+                lines = text.split('\n')
+                for i, line in enumerate(lines):
                     if keyword in line:
-                        return line.replace(keyword, "").replace(":", "").strip()
-                return "정보 미확인"
+
 
             maker_val = parse_field(strategy_info, "제조사")
             insight_val = parse_field(strategy_info, "제품 인사이트 요약(1줄)")
