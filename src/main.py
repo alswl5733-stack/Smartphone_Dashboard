@@ -201,9 +201,14 @@ if __name__ == "__main__":
         
         analyzed_models = set()
         
-        # 💡 메일에 담을 내용들을 차곡차곡 모아둘 빈 바구니 준비
-        email_body = f"안녕하세요 디렉터님, 오늘({current_dates['today_str_kr']}) 탐지된 신제품 분석 리포트입니다.\n\n"
-        email_body += "=========================================\n\n"
+        # 💡 HTML 메일 본문 구성 시작
+        dashboard_url = "https://script.google.com/macros/s/AKfycbwV2wRhXwCYWjn9kkoglZGkMcensvR_cvzBOO76jG-uJ9Egoi8BMaOC4p_ueGJppEA/exec"
+        
+        email_body = f"""
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <h2>안녕하세요 디렉터님, 오늘({current_dates['today_str_kr']}) 탐지된 신제품 분석 리포트입니다.</h2>
+            <hr style="border: 0; border-top: 2px solid #0284c7; margin: 20px 0;">
+        """
         
         for device in final_target_models:
             clean_name = device['model_name'].strip().lower()
