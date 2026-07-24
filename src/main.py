@@ -210,13 +210,12 @@ if __name__ == "__main__":
             <hr style="border: 0; border-top: 2px solid #0284c7; margin: 20px 0;">
         """
         
-        for device in final_target_models:
+ for device in final_target_models:
             clean_name = device['model_name'].strip().lower()
             if clean_name in analyzed_models:
                 continue
             analyzed_models.add(clean_name)
             
-            # Pro 모델이 심층 분석한 결과물 가져오기 (이 안에 제조사, 시사점 등이 다 줄글로 들어있습니다)
             strategy_info = fetch_usp_and_target(device['model_name'], device['intro_text'])
             
             print(f"  ㄴ {device['model_name']} 분석 완료")
