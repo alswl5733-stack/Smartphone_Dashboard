@@ -230,6 +230,8 @@ if __name__ == "__main__":
                         # 별표(*), 샵(#), 콜론(:), 키워드를 제거하여 pure text만 추출
                         cleaned = line.replace(keyword, "").replace(":", "").replace("*", "").replace("#", "").strip()
                         if cleaned:
+                            return cleaned
+                        elif i + 1 < len(lines):
 
 
             maker_val = parse_field(strategy_info, "제조사")
