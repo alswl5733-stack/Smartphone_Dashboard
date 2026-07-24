@@ -227,6 +227,9 @@ if __name__ == "__main__":
                 lines = text.split('\n')
                 for i, line in enumerate(lines):
                     if keyword in line:
+                        # 별표(*), 샵(#), 콜론(:), 키워드를 제거하여 pure text만 추출
+                        cleaned = line.replace(keyword, "").replace(":", "").replace("*", "").replace("#", "").strip()
+                        if cleaned:
 
 
             maker_val = parse_field(strategy_info, "제조사")
