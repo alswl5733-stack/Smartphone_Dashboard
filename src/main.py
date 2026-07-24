@@ -2,12 +2,13 @@ import smtplib
 from email.mime.text import MIMEText
 
 # 💡 이메일 발송 함수 추가
-def send_email_report(report_content):
-    sender = "alswl5733@gmail.com" # 디렉터님의 이메일
-    password = "tlto wxao oqzs nhwc"   # 구글 앱 비밀번호 (아래 팁 참조)
+def send_email_report(report_html):
+    sender = "alswl5733@gmail.com" 
+    password = "tlto wxao oqzs nhwc" # 디렉터님의 앱 비밀번호
     recipient = "minji.kim@lgdisplay.com"
     
-    msg = MIMEText(report_content)
+    # MIMEText 두 번째 인자에 'html'을 지정하여 하이퍼링크가 클릭되도록 설정
+    msg = MIMEText(report_html, 'html', 'utf-8')
     msg['Subject'] = "[자동화] 신제품 신속 분석 리포트"
     msg['From'] = sender
     msg['To'] = recipient
