@@ -1,22 +1,5 @@
 import smtplib
 from email.mime.text import MIMEText
-
-# 💡 이메일 발송 함수 추가
-def send_email_report(report_html):
-    sender = "alswl5733@gmail.com" 
-    password = "tlto wxao oqzs nhwc" # 디렉터님의 앱 비밀번호
-    recipient = "minji.kim@lgdisplay.com"
-    
-    # MIMEText 두 번째 인자에 'html'을 지정하여 하이퍼링크가 클릭되도록 설정
-    msg = MIMEText(report_html, 'html', 'utf-8')
-    msg['Subject'] = "[자동화] 신제품 신속 분석 리포트"
-    msg['From'] = sender
-    msg['To'] = recipient
-    
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-        server.login(sender, password)
-        server.sendmail(sender, recipient, msg.as_string())
-
 import os
 import json
 import datetime
@@ -28,6 +11,37 @@ import google.generativeai as genai
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
+# 💡 1. 깃허브 클라우드 환경에 최적화된 587 포트 (TLS) HTML 메일 발송 함수
+def send_email_report(report_html):
+    sender = "alswl5733@gmail.com" 
+    password = "tltowxaooqzsnhwc" 
+    recipient = "minji.kim@lgdisplay.com"
+    
+    msg = MIMEText(report_html, 'html', 'utf-8')
+    msg['Subject'] = "[자동화] 신제품 신속 분석 리포트"
+    msg['From'] = sender
+    msg['To'] = recipient
+    
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.ehlo()
+    server.starttls() 
+    server.login(sender, password)
+    server.sendmail(sender, recipient, msg.as_string())
+    server.quit()
+
+# 💡 2. 마크다운 기호 완벽 제거 및 줄바꿈 대응 (들여쓰기 에러 완벽 방지형)
+def parse_field(text, keyword):
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        if keyword in line:
+            cleaned = line.replace(keyword, "").replace(":", "").replace("*", "").replace("#", "").strip()
+            if len(cleaned) > 0:
+                return cleaned
+            else:
+                if i + 1 < len(lines):
+                    return lines[i+1].replace("*", "").replace("#", "").replace(":", "").strip()
+    return "정보 미확인"
+
 # 연동할 구글 스프레드시트 ID
 SPREADSHEET_ID = "1fKrSktMeXJmnqwUGOgk4QLtwfpAlkkFi5SvYJSrbT5o"
 
@@ -36,9 +50,7 @@ gcp_creds_json = os.environ.get("GCP_CREDENTIALS")
 
 if gemini_key:
     genai.configure(api_key=gemini_key)
-    # 신제품 정찰 및 가벼운 검증용 Lite 모델
     lite_model = genai.GenerativeModel('gemini-3.1-flash-lite')
-    # 💡 딥 다이브 분석 및 핵심 마케팅 전략 도출을 전담하는 강력한 Pro 모델
     pro_model = genai.GenerativeModel('gemini-3.5-flash')
 
 def get_sheets_service():
@@ -52,10 +64,7 @@ def get_sheets_service():
 
 def get_kst_dates():
     kst = datetime.timezone(datetime.timedelta(hours=9))
-    
-    # 🔓 [실전 라이브 모드] 시스템의 실제 현재 한국 시간을 기준으로 작동합니다.
     today = datetime.datetime.now(kst)
-    
     yesterday = today - datetime.timedelta(days=1)
     tomorrow = today + datetime.timedelta(days=1)
     day_before_yesterday = today - datetime.timedelta(days=2) 
@@ -86,7 +95,6 @@ def detect_new_releases():
             link = item.link.text
             print(f"[{i+1}/{min(200, len(items))}] 검사 중: {title}")
             
-            # 루머, 컨셉 단계 기사는 1차 컷탈락
             if any(w in title.lower() for w in ['rumor', 'concept', 'reportedly']):
                 continue
                 
@@ -106,7 +114,7 @@ def detect_new_releases():
             이 기사가 스마트폰 신제품의 공식 발표일이나 출시 행사를 다루고 있나요?
 
             <유연한 판별 기준>
-            1. 출시 행사를 시청하는 법(How to watch), 오늘 글로벌 런칭 이벤트(Global launch event today) 등은 제품이 오늘 공개된다는 팩트이므로 인정합니다.
+            1. 출시 행사를 시청하는 법(How to watch), 오늘 글로벌 런칭 이벤트 등은 제품이 오늘 공개된다는 팩트이므로 인정합니다.
             2. [지각 출시 필터링] 과거에 이미 출시된 폰이 특정 국가에 뒤늦게 런칭하는 기사는 무조건 '아니오'로 답하세요.
             3. 예정(Expected), 유출(Leak), 루머(Rumor) 등 아직 발표되지 않은 소식은 '아니오'로 답하세요.
             4. 기사 내용이 제품의 공식적인 최초 등장이나 발표를 다룬다면 인정하세요.
@@ -115,8 +123,6 @@ def detect_new_releases():
             """
             
             ai_response = lite_model.generate_content(check_prompt).text.strip()
-            
-            # 군더더기 답변 접두사 완전 방어
             cleaned_name = ai_response.replace("예,", "").replace("Yes,", "").replace("예", "").replace("Yes", "").strip()
             
             if "아니오" not in ai_response and len(cleaned_name) > 2:
@@ -144,7 +150,6 @@ def fetch_usp_and_target(model_name, intro_text):
         soup = BeautifulSoup(response.content, 'xml')
         items = soup.find_all('item')
         
-        # 💡 정확도를 위해 긁어오는 기사 풀을 4개로 늘리고, li 등 상세 태그까지 최대 10,000자 스캔
         for item in items[:4]:
             try:
                 res = requests.get(item.link.text, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
@@ -152,7 +157,8 @@ def fetch_usp_and_target(model_name, intro_text):
                 elements = art_soup.find_all(['p', 'h1', 'h2', 'li'])
                 extracted_texts = [el.text.strip() for el in elements if len(el.text.strip()) > 10]
                 combined_text += "\n".join(extracted_texts[:40]) + "\n"
-            except: pass
+            except: 
+                pass
             time.sleep(3) 
             
         usp_prompt = f"""
@@ -179,7 +185,6 @@ def save_to_cumulative_sheet(model_name, strategy_text, url):
     service = get_sheets_service()
     if not service: return
     try:
-        # 🔓 [실전 라이브 모드] 시트 기록 시점의 현재 KST 한국 날짜를 도장 찍어줍니다.
         kst = datetime.timezone(datetime.timedelta(hours=9))
         current_date = datetime.datetime.now(kst).strftime("%Y-%m-%d")
         
@@ -201,7 +206,6 @@ if __name__ == "__main__":
         
         analyzed_models = set()
         
-        # HTML 메일 본문 구성
         dashboard_url = "https://script.google.com/macros/s/AKfycbwV2wRhXwCYWjn9kkoglZGkMcensvR_cvzBOO76jG-uJ9Egoi8BMaOC4p_ueGJppEA/exec"
         
         email_body = f"""
@@ -222,7 +226,6 @@ if __name__ == "__main__":
             save_to_cumulative_sheet(device['model_name'], strategy_info, device['primary_url'])
             print(f"✔️ {device['model_name']} 기획 전략 시트 반영 완료")
             
-            # 파싱 및 정보 추출
             maker_val = parse_field(strategy_info, "제조사")
             insight_val = parse_field(strategy_info, "제품 인사이트 요약(1줄)")
             if insight_val == "정보 미확인":
