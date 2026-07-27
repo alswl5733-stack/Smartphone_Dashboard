@@ -80,7 +80,7 @@ def detect_new_releases():
     dates = get_kst_dates()
     print(f"📡 [1단계: 정찰] 검색망({dates['yesterday_query']} ~ {dates['tomorrow_query']}) 내의 글로벌 기사를 검사합니다...")
     
-    search_query = f"smartphone (launch OR announcement OR unveils OR debuted OR \"is official\") after:" + formatQ(yesterday) + " before:" + formatQ(tomorrow);
+    search_query = f"smartphone (launch OR announcement OR unveils OR debuted) after:{dates['yesterday_query']} before:{dates['tomorrow_query']}"
     encoded_query = urllib.parse.quote(search_query)
     url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
     
